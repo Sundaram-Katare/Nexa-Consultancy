@@ -11,12 +11,23 @@ import {
   getFlaggedDuplicates,
 } from "../db/queries/documents";
 
+import {
+  extractDurationSignals,
+  extractDurationSignalsBatch,
+  getEvidenceSignals,
+} from "../evidence/evidenceExtractor";
+
 interface ProcessDocumentsQuery {
   sourceId?: string;
   limit?: string | number;
 }
 
 interface RelevanceFilterQuery {
+  sourceId?: string;
+  limit?: string | number;
+}
+
+interface BatchEvidenceQuery {
   sourceId?: string;
   limit?: string | number;
 }
@@ -30,6 +41,90 @@ interface DocumentParams {
 }
 
 export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  // POST /documents/extract-evidence-batch?sourceId=X&limit=N - Batch extract duration signals
+  fastify.post(
+    "/extract-evidence-batch",
+    async (
+      request: FastifyRequest<{ Querystring: BatchEvidenceQuery }>,
+      reply: FastifyReply
+    ) => {
+      const sourceId = request.query.sourceId;
+      const limitRaw = request.query.limit ? Number(request.query.limit) : 20;
+      const limit = isNaN(limitRaw) || limitRaw <= 0 ? 20 : Math.min(limitRaw, 100);
+
+      try {
+        const summary = await extractDurationSignalsBatch(sourceId, limit);
+        return reply.status(200).send({
+          statusCode: 200,
+          message: `Extracted signals from ${summary.totalProcessed} documents (${summary.totalSignalsExtracted} total signals)`,
+          data: summary,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "EvidenceExtractionError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // POST /documents/:id/extract-evidence - Extract duration signals for single document
+  fastify.post(
+    "/:id/extract-evidence",
+    async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const doc = await getDocumentById(id);
+
+      if (!doc) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Document with ID '${id}' was not found.`,
+        });
+      }
+
+      try {
+        const signals = await extractDurationSignals(id);
+        return reply.status(200).send({
+          statusCode: 200,
+          documentId: id,
+          signalsCount: signals.length,
+          signals,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "EvidenceExtractionError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // GET /documents/:id/signals - Retrieve structured duration signals for document
+  fastify.get(
+    "/:id/signals",
+    async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const doc = await getDocumentById(id);
+
+      if (!doc) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Document with ID '${id}' was not found.`,
+        });
+      }
+
+      const signals = await getEvidenceSignals(id);
+      return reply.send({
+        documentId: id,
+        signalsCount: signals.length,
+        signals,
+      });
+    }
+  );
   // POST /documents/relevance-filter?sourceId=X&limit=N - Deterministic relevance filter
   fastify.post(
     "/relevance-filter",
