@@ -1,4 +1,7 @@
 import dotenv from "dotenv";
+import { startServer } from "./server";
+import { closePool } from "./db/pool";
+import { browserManager } from "./browser/browserManager";
 
 dotenv.config();
 
@@ -11,27 +14,40 @@ function maskDatabaseUrl(url?: string): string {
     }
     return parsed.toString();
   } catch {
-    // If not standard URL format, regex mask credentials
     return url.replace(/:([^@]+)@/, ":****@");
   }
 }
 
-console.log("[AGENT] agent alive");
-const dbUrl = process.env.DATABASE_URL;
-console.log(`[AGENT] DATABASE_URL: ${maskDatabaseUrl(dbUrl)}`);
-console.log(`[AGENT] OLLAMA_URL: ${process.env.OLLAMA_URL || "<not set>"}`);
-console.log(`[AGENT] AGENT_PORT: ${process.env.AGENT_PORT || "3000"}`);
+async function main() {
+  const port = parseInt(process.env.AGENT_PORT || "3000", 10);
+  console.log("==================================================");
+  console.log("🚀 STARTING NEXA AGENT API ENGINE");
+  console.log("==================================================");
+  console.log(`[AGENT] DATABASE_URL: ${maskDatabaseUrl(process.env.DATABASE_URL)}`);
+  console.log(`[AGENT] OLLAMA_URL: ${process.env.OLLAMA_URL || "<not set>"}`);
+  console.log(`[AGENT] AGENT_PORT: ${port}`);
 
-// Keep process active and log heartbeat every 60 seconds
-const heartbeat = setInterval(() => {
-  console.log(`[AGENT] Heartbeat tick - ${new Date().toISOString()}`);
-}, 60000);
+  const server = await startServer(port);
 
-function cleanExit(signal: string) {
-  console.log(`[AGENT] Received ${signal}. Cleaning up and exiting cleanly...`);
-  clearInterval(heartbeat);
-  process.exit(0);
+  async function shutdown(signal: string) {
+    console.log(`\n[AGENT] Received ${signal}. Gracefully closing server, browser, and database pool...`);
+    try {
+      await browserManager.closeAll();
+      await server.close();
+      await closePool();
+      console.log("[AGENT] Graceful shutdown complete. Exiting cleanly.");
+      process.exit(0);
+    } catch (err) {
+      console.error("[AGENT] Error during shutdown:", err);
+      process.exit(1);
+    }
+  }
+
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-process.on("SIGTERM", () => cleanExit("SIGTERM"));
-process.on("SIGINT", () => cleanExit("SIGINT"));
+main().catch((err) => {
+  console.error("[AGENT] Fatal startup error:", err);
+  process.exit(1);
+});

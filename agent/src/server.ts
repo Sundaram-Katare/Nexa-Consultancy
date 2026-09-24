@@ -1,0 +1,49 @@
+import Fastify, { FastifyInstance } from "fastify";
+import cors from "@fastify/cors";
+import { jobsRoutes } from "./routes/jobs";
+import { debugRoutes } from "./routes/debug";
+import { checkDatabaseHealth } from "./db/pool";
+
+export function buildServer(): FastifyInstance {
+  const server = Fastify({
+    logger: {
+      level: process.env.LOG_LEVEL || "info",
+    },
+  });
+
+  // Enable CORS
+  server.register(cors, {
+    origin: true,
+  });
+
+  // Health Check Endpoint
+  server.get("/health", async (request, reply) => {
+    const isDbHealthy = await checkDatabaseHealth();
+    return reply.status(isDbHealthy ? 200 : 503).send({
+      status: isDbHealthy ? "ok" : "degraded",
+      service: "nexa-agent",
+      version: "1.0.0",
+      timestamp: new Date().toISOString(),
+      database: isDbHealthy ? "connected" : "disconnected",
+    });
+  });
+
+  // Register Route Groups
+  server.register(jobsRoutes, { prefix: "/jobs" });
+  server.register(debugRoutes, { prefix: "/debug" });
+
+  return server;
+}
+
+export async function startServer(port = 3000, host = "0.0.0.0") {
+  const server = buildServer();
+
+  try {
+    const address = await server.listen({ port, host });
+    server.log.info(`[SERVER] Agent API listening at ${address}`);
+    return server;
+  } catch (err) {
+    server.log.error(err);
+    process.exit(1);
+  }
+}

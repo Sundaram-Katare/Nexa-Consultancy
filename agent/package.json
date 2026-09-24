@@ -10,12 +10,17 @@
     "migrate": "node-pg-migrate -m migrations",
     "migrate:up": "node-pg-migrate -m migrations up",
     "migrate:down": "node-pg-migrate -m migrations down",
-    "test:schema": "ts-node-dev --transpile-only src/test-schema.ts"
+    "test:schema": "ts-node-dev --transpile-only src/test-schema.ts",
+    "test:api": "ts-node-dev --transpile-only src/test-api.ts",
+    "test:browser": "ts-node-dev --transpile-only src/test-browser.ts"
   },
   "dependencies": {
+    "@fastify/cors": "^10.0.2",
     "dotenv": "^16.4.7",
+    "fastify": "^5.2.1",
     "node-pg-migrate": "^7.9.1",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "playwright": "^1.48.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
