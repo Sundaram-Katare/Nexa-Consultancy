@@ -15,7 +15,8 @@
     "test:browser": "ts-node-dev --transpile-only src/test-browser.ts",
     "test:adapter": "ts-node-dev --transpile-only src/test-adapter.ts",
     "test:slideshare": "ts-node-dev --transpile-only src/test-slideshare.ts",
-    "test:planner": "ts-node-dev --transpile-only src/test-planner.ts"
+    "test:planner": "ts-node-dev --transpile-only src/test-planner.ts",
+    "test:extraction": "ts-node-dev --transpile-only src/test-extraction.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

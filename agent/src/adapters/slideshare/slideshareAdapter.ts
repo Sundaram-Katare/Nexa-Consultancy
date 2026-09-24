@@ -206,17 +206,42 @@ export class SlideShareAdapter extends BaseSourceAdapter {
     const page = this.resolvePage(session);
     console.log(`[SLIDESHARE] Opening document: ${result.canonicalUrl}`);
 
-    await page.goto(result.canonicalUrl, {
+    const response = await page.goto(result.canonicalUrl, {
       timeout: SLIDESHARE_CONFIG.NAVIGATION_TIMEOUT_MS,
       waitUntil: "domcontentloaded",
     });
+
+    if (response && response.status() >= 400) {
+      throw new Error(
+        `Failed to open document: HTTP ${response.status()} ${response.statusText()}`
+      );
+    }
+
+    const pageTitle = (await page.title()) || "";
+    if (
+      pageTitle.toLowerCase().includes("page not found") ||
+      pageTitle.toLowerCase().includes("404")
+    ) {
+      throw new Error(`Document not found (Page title: "${pageTitle}")`);
+    }
 
     try {
       await page.waitForSelector(SLIDESHARE_SELECTORS.DOC_TITLE, {
         timeout: SLIDESHARE_CONFIG.SELECTOR_TIMEOUT_MS,
       });
     } catch {
-      // Continue parsing even if title selector is delayed
+      // Check if page ended up on a not found state
+      const isNotFound = await page.evaluate(() => {
+        const bodyText = document.body?.innerText || "";
+        return (
+          bodyText.includes("Page not found") ||
+          bodyText.includes("404 - Page Not Found") ||
+          bodyText.includes("This presentation is no longer available")
+        );
+      });
+      if (isNotFound) {
+        throw new Error("Document is unavailable or deleted on SlideShare (404 Not Found).");
+      }
     }
   }
 
@@ -226,7 +251,7 @@ export class SlideShareAdapter extends BaseSourceAdapter {
   protected async doExtractMetadata(session: any): Promise<RawMetadata> {
     const page = this.resolvePage(session);
 
-    return await page.evaluate((selectors) => {
+    const metadata = await page.evaluate((selectors) => {
       // 1. Try reading Next.js __NEXT_DATA__
       let nextData: any = null;
       try {
@@ -244,9 +269,9 @@ export class SlideShareAdapter extends BaseSourceAdapter {
       // Extract title
       const title =
         slideshow?.title ||
+        document.querySelector(selectors.DOC_TITLE)?.textContent?.trim() ||
         document.querySelector("h1")?.textContent?.trim() ||
-        document.title ||
-        "Untitled Document";
+        null;
 
       // Extract uploader
       const uploader =
@@ -295,6 +320,12 @@ export class SlideShareAdapter extends BaseSourceAdapter {
       DOC_DESCRIPTION: SLIDESHARE_SELECTORS.DOC_DESCRIPTION,
       DOC_UPLOAD_DATE: SLIDESHARE_SELECTORS.DOC_UPLOAD_DATE,
     });
+
+    if (!metadata || !metadata.title) {
+      throw new Error("Unable to extract valid document metadata or title from page.");
+    }
+
+    return metadata;
   }
 
   /**

@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from "fastify";
 import cors from "@fastify/cors";
 import { jobsRoutes } from "./routes/jobs";
 import { searchTasksRoutes } from "./routes/searchTasks";
+import { documentsRoutes } from "./routes/documents";
 import { debugRoutes } from "./routes/debug";
 import { checkDatabaseHealth } from "./db/pool";
 
@@ -32,6 +33,7 @@ export function buildServer(): FastifyInstance {
   // Register Route Groups
   server.register(jobsRoutes, { prefix: "/jobs" });
   server.register(searchTasksRoutes, { prefix: "/search-tasks" });
+  server.register(documentsRoutes, { prefix: "/documents" });
   server.register(debugRoutes, { prefix: "/debug" });
 
   return server;
