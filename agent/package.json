@@ -6,13 +6,20 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "migrate": "node-pg-migrate -m migrations",
+    "migrate:up": "node-pg-migrate -m migrations up",
+    "migrate:down": "node-pg-migrate -m migrations down",
+    "test:schema": "ts-node-dev --transpile-only src/test-schema.ts"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "node-pg-migrate": "^7.9.1",
+    "pg": "^8.13.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
+    "@types/pg": "^8.11.11",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.7.3"
   }
