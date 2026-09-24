@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/playwright:v1.48.0-jammy
+
+WORKDIR /app
+
+# Install dependencies first for efficient layer caching
+COPY package*.json ./
+RUN npm install
+
+# Copy application source code
+COPY tsconfig.json ./
+COPY src/ ./src/
+
+# Expose agent port
+EXPOSE 3000
+
+# Run in dev mode with ts-node-dev for rapid reload
+CMD ["npm", "run", "dev"]

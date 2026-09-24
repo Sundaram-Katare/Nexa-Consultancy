@@ -1,0 +1,92 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: nexa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexa_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexa_secure_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-nexa_consultancy_db}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nexa_user} -d ${POSTGRES_DB:-nexa_consultancy_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nexa_network
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: nexa_ollama
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    ports:
+      - "${OLLAMA_HOST_PORT:-11434}:11434"
+    networks:
+      - nexa_network
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: nexa_n8n
+    restart: unless-stopped
+    environment:
+      - N8N_PORT=${N8N_PORT:-5678}
+      - N8N_HOST=${N8N_HOST:-localhost}
+      - N8N_PROTOCOL=${N8N_PROTOCOL:-http}
+      - N8N_ENCRYPTION_KEY=${N8N_ENCRYPTION_KEY:-nexa_super_secret_encryption_key_32chars}
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_DATABASE=${POSTGRES_DB:-nexa_consultancy_db}
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_USER=${POSTGRES_USER:-nexa_user}
+      - DB_POSTGRESDB_PASSWORD=${POSTGRES_PASSWORD:-nexa_secure_password_123}
+    volumes:
+      - n8n_data:/home/node/.n8n
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nexa_network
+
+  agent:
+    build:
+      context: ../agent
+      dockerfile: Dockerfile
+    container_name: nexa_agent
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql://nexa_user:nexa_secure_password_123@postgres:5432/nexa_consultancy_db}
+      - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - AGENT_PORT=${AGENT_PORT:-3000}
+      - NODE_ENV=${NODE_ENV:-development}
+    volumes:
+      - agent_logs:/app/logs
+    ports:
+      - "${AGENT_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - nexa_network
+
+networks:
+  nexa_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+    name: nexa_pgdata
+  n8n_data:
+    name: nexa_n8n_data
+  ollama_models:
+    name: nexa_ollama_models
+  agent_logs:
+    name: nexa_agent_logs
