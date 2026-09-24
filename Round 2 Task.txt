@@ -1,0 +1,183 @@
+Hi, for Round 2, this will be your practical automation task.
+
+You need to first open Scribd, study the website properly, understand how the search, document pages, pagination, categories and account access work, and then design the automation based on the actual website structure.
+
+We will provide you the Scribd account/login. You can also use Codex and Claude during development if needed.
+
+Main Task
+
+Build a complete Google Chrome automation system that finds and collects all available academic transcripts for Diploma level and above from the countries listed below.
+
+This is not only a demo. Management will check the actual output, so the system should search as thoroughly as possible and should not stop after basic searches or the first few pages.
+
+Accepted countries:
+
+American Samoa, Dominica, Lesotho, St. Kitts & Nevis, Anguilla, Falkland Islands, Liberia, St. Lucia, Antigua & Barbuda, Fiji, Malta, St. Vincent & the Grenadines, Australia, Gambia, Mauritius, Tanzania, Bahamas, Ghana, Montserrat, Trinidad & Tobago, Barbados, Gibraltar, New Zealand, Turks & Caicos Islands, Belize, Grenada, Nigeria, Uganda, Bermuda, Guam, Seychelles, United Kingdom, Botswana, Guyana, Sierra Leone, US Virgin Islands, British Virgin Islands, Ireland, Singapore, USA, Canada, Jamaica, South Africa, Zambia, Cayman Islands, Kenya, St. Helena and Zimbabwe.
+
+Search for Diploma and higher education records, including transcripts, academic records, grade sheets, mark sheets, statements of results, degree transcripts, college/university transcripts and similar academic records.
+
+The system should automatically work through different combinations such as:
+
+Country → University/College → Program/Degree → Transcript Keywords → Search Variations → Result Pages
+
+Important Transcript Requirement
+
+The main usable transcript dataset should contain records showing at least 2 completed academic years.
+
+The automation should inspect the transcript/academic record wherever enough information is available and classify it into one of these categories:
+
+2 Years or More — Main Dataset
+Transcripts showing at least 2 completed academic years should go into the main accepted dataset.
+
+Less Than 2 Years — Separate Dataset
+Any relevant transcript showing less than 2 completed academic years should still be collected, but it must be placed separately and should not be mixed with the main dataset.
+
+If the duration cannot be confidently determined, mark it as Needs Review / Duration Unclear rather than guessing.
+
+Country-Wise Sorting
+
+After collection, the automation must automatically organize the transcripts country by country.
+
+For example:
+
+Canada
+→ Accepted – 2 Years or More
+→ Less Than 2 Years
+→ Needs Review
+
+USA
+→ Accepted – 2 Years or More
+→ Less Than 2 Years
+→ Needs Review
+
+United Kingdom
+→ Accepted – 2 Years or More
+→ Less Than 2 Years
+→ Needs Review
+
+…and the same structure for every accepted country.
+
+The final output should make it very easy for management to see:
+
+* Which countries have been completed
+* How many transcripts were found for each country
+* How many have 2+ completed years
+* How many are less than 2 years
+* How many require manual review
+
+It should collect and organize at minimum:
+
+Country
+College/University
+Document Title
+Education Level
+Program, if available
+Document Type
+Academic Duration / Years Completed
+Classification: 2+ Years / Less Than 2 Years / Needs Review
+Scribd Link
+Document ID
+Status
+
+It must automatically remove duplicates and remember what has already been searched.
+
+3 Additional Websites
+
+You also need to independently find 3 additional websites similar to Scribd where comparable academic transcript/academic-record data is legally available for free.
+
+You need to understand those websites as well and use the same automation framework to extract relevant public data from them.
+
+The same 2-year minimum classification and country-wise sorting system should be applied to these sources wherever the necessary information is available.
+
+Management will check both the websites you selected and the extracted results.
+
+Most Important Technical Requirement — Reusable AI Browser Agent
+
+Do not build this as a one-time Scribd script.
+
+We want a general-purpose AI-powered Chrome automation agent that can later be used for many different browser automation tasks.
+
+Ideally, it should work like a Chrome extension or single installable package/file.
+
+The idea is:
+
+Install it on a computer → open Chrome → give it a command → the agent understands the task and starts operating the browser.
+
+For example, in the future we may give it instructions such as:
+
+“Go to this website, understand how it works, search for this type of information, organize the results and export them.”
+
+The core automation should be reusable without rewriting the whole program every time.
+
+It should be easy to install on another Windows/Mac system and start using with minimal setup.
+
+Open-Source AI Requirement
+
+For the heavy day-to-day browser automation, the system should use open-source/local AI wherever practical, so the company is not paying OpenAI/Claude API credits for every browser action.
+
+You can use paid tools such as Codex or Claude while building/debugging the system, but the finished automation should be designed so routine operation can run primarily using:
+
+* Local/open-source LLMs
+* Open-source browser automation
+* Local decision-making/classification where practical
+
+We want to avoid a system where thousands of browser actions continuously consume paid AI API credits.
+
+Automation Requirements
+
+The final system should include:
+
+* Chrome/browser control
+* AI command interpretation
+* Automatic search generation
+* Deep result/pagination processing
+* Transcript detection/classification
+* 2-year completion classification
+* Country-wise sorting
+* Separate folder/database for records under 2 years
+* Separate review section for unclear duration
+* Duplicate prevention
+* Persistent storage/database
+* Checkpoint and resume
+* Automatic retry/error handling
+* Search history
+* Progress tracking
+* Country/institution completion tracking
+* CSV/Excel export
+* Logs
+* Ability to continue after Chrome/computer restart
+
+There should also be a simple way for management to see:
+
+Total records found
+2+ year transcripts
+Less-than-2-year transcripts
+Needs-review transcripts
+Unique records
+Duplicates removed
+Results by country
+Results by institution
+Searches completed
+Searches remaining
+Errors
+Current progress
+
+Final Deliverables
+
+For Round 2, management will evaluate:
+
+1. Complete transcript collection from Scribd for the listed countries
+2. Correct separation of 2+ year transcripts vs less-than-2-year transcripts
+3. Proper country-wise organization
+4. Data extracted from 3 additional free/public sources
+5. Quality and accuracy of the collected data
+6. The working automation source code
+7. The portable/reusable Chrome automation agent
+8. Easy installation on another computer
+9. Open-source/local AI architecture for heavy usage
+10. Deduplication, checkpoint and progress tracking
+11. Ability to reuse the same agent for future browser automation projects
+
+The automation must operate only through access we are authorized to use and should not attempt to bypass CAPTCHAs, security systems, paid-access controls or other website protections.
+
+This will be the evaluation for Round 2.

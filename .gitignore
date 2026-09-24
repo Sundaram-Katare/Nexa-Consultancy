@@ -1,0 +1,64 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials/
+auth_tokens/
+session_data/
+
+# Build & Output Files
+dist/
+build/
+out/
+output_data/
+exports/
+*.xlsx
+*.csv
+!tests/fixtures/*.csv
+!tests/fixtures/*.xlsx
+
+# Logs & Diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Playwright & Browser State
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+browser_profiles/
+chrome_user_data/
+.playwright/
+
+# PostgreSQL & Docker Data
+docker_data/
+pgdata/
+n8n_data/
+ollama_data/
+
+# IDE & OS Files
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary & Scratch Files
+tmp/
+temp/
+scratch/
+*.swp
+*.bak
