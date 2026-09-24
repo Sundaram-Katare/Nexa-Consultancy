@@ -1,4 +1,5 @@
 import { query } from "../pool";
+import { deduplicationService } from "../../dedup/deduplicationService";
 
 export interface SearchTaskRow {
   id: string;
@@ -87,7 +88,7 @@ export async function insertSearchHistory(
 
 /**
  * Inserts a newly discovered document in PENDING status.
- * Automatically handles deduplication via database unique constraints.
+ * Automatically handles deduplication across Level 1, Level 2, and Level 3 via DeduplicationService.
  */
 export async function insertPendingDocument(doc: {
   sourceId: number;
@@ -99,42 +100,14 @@ export async function insertPendingDocument(doc: {
   educationLevel?: string | null;
   program?: string | null;
   documentType?: string | null;
-}): Promise<{ inserted: boolean; id?: string; duplicate: boolean }> {
-  try {
-    const res = await query(
-      `INSERT INTO documents (
-         source_id, source_document_id, canonical_url, title, 
-         country_id, institution, education_level, program, document_type, status
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING')
-       ON CONFLICT (canonical_url) DO NOTHING
-       RETURNING id;`,
-      [
-        doc.sourceId,
-        doc.sourceDocId,
-        doc.canonicalUrl,
-        doc.title,
-        doc.countryId,
-        doc.institution || null,
-        doc.educationLevel || null,
-        doc.program || null,
-        doc.documentType || null,
-      ]
-    );
-
-    if (res.rows.length > 0) {
-      return { inserted: true, id: res.rows[0].id, duplicate: false };
-    }
-
-    // If ON CONFLICT on canonical_url didn't return an id, it was an existing document
-    return { inserted: false, duplicate: true };
-  } catch (err: any) {
-    if (err.code === "23505") {
-      // Unique violation on (source_id, source_document_id) or canonical_url
-      return { inserted: false, duplicate: true };
-    }
-    console.error("[SEARCH_TASKS] Unexpected error inserting pending document:", err.message);
-    throw err;
-  }
+}): Promise<{ inserted: boolean; id?: string; duplicate: boolean; duplicateReason?: string | null }> {
+  const result = await deduplicationService.checkDuplicateAndIngest(doc);
+  return {
+    inserted: result.inserted,
+    id: result.documentId,
+    duplicate: result.isDuplicate,
+    duplicateReason: result.reason,
+  };
 }
 
 /**

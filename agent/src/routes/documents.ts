@@ -4,6 +4,7 @@ import {
   getDocumentById,
   getDocumentEvidence,
   getDocumentErrors,
+  getFlaggedDuplicates,
 } from "../db/queries/documents";
 
 interface ProcessDocumentsQuery {
@@ -11,11 +12,34 @@ interface ProcessDocumentsQuery {
   limit?: string | number;
 }
 
+interface DuplicatesQuery {
+  confidence?: string | number;
+}
+
 interface DocumentParams {
   id: string;
 }
 
 export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  // GET /documents/duplicates?confidence=0.6 - List Level-3 flagged duplicates for human review
+  fastify.get(
+    "/duplicates",
+    async (
+      request: FastifyRequest<{ Querystring: DuplicatesQuery }>,
+      reply: FastifyReply
+    ) => {
+      const confRaw = request.query.confidence ? Number(request.query.confidence) : 0.6;
+      const confidence = isNaN(confRaw) ? 0.6 : confRaw;
+
+      const duplicates = await getFlaggedDuplicates(confidence);
+      return reply.send({
+        statusCode: 200,
+        count: duplicates.length,
+        minConfidence: confidence,
+        duplicates,
+      });
+    }
+  );
   // POST /documents/process?sourceId=X&limit=N - Trigger document extraction batch
   fastify.post(
     "/process",

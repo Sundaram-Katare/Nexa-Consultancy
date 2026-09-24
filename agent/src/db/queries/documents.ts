@@ -187,3 +187,52 @@ export async function getDocumentErrors(documentId: string) {
   );
   return res.rows;
 }
+
+/**
+ * Retrieves all Level-3 flagged near-duplicate documents for human review.
+ */
+export async function getFlaggedDuplicates(minConfidence: number = 0.6) {
+  const res = await query(
+    `SELECT 
+       d.id, d.source_id, s.name as source_name, d.source_document_id,
+       d.canonical_url, d.title, d.country_id, c.name as country_name,
+       d.institution, d.status, d.duplicate_of, d.duplicate_reason,
+       d.duplicate_confidence, d.created_at,
+       orig.canonical_url as original_canonical_url,
+       orig.title as original_title,
+       orig.institution as original_institution,
+       orig.created_at as original_created_at
+     FROM documents d
+     JOIN sources s ON d.source_id = s.id
+     LEFT JOIN countries c ON d.country_id = c.id
+     JOIN documents orig ON d.duplicate_of = orig.id
+     WHERE d.duplicate_of IS NOT NULL
+       AND d.duplicate_confidence >= $1
+     ORDER BY d.created_at DESC;`,
+    [minConfidence]
+  );
+
+  return res.rows.map((row: any) => ({
+    id: row.id,
+    sourceId: row.source_id,
+    sourceName: row.source_name,
+    sourceDocumentId: row.source_document_id,
+    canonicalUrl: row.canonical_url,
+    title: row.title,
+    countryId: row.country_id,
+    countryName: row.country_name,
+    institution: row.institution,
+    status: row.status,
+    duplicateOf: row.duplicate_of,
+    duplicateReason: row.duplicate_reason,
+    duplicateConfidence: Number(row.duplicate_confidence),
+    createdAt: row.created_at,
+    originalDocument: {
+      id: row.duplicate_of,
+      canonicalUrl: row.original_canonical_url,
+      title: row.original_title,
+      institution: row.original_institution,
+      createdAt: row.original_created_at,
+    },
+  }));
+}
