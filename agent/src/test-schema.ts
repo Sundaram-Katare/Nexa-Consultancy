@@ -6,8 +6,18 @@ async function runTests() {
   console.log("==================================================");
 
   try {
+    // 0. Pre-clean any test artifacts from prior runs
+    await query(`
+      DELETE FROM classifications 
+      WHERE document_id IN (
+        SELECT id FROM documents WHERE source_document_id LIKE 'SCRIBD-DOC-999%'
+      );
+    `);
+    await query(`DELETE FROM documents WHERE source_document_id LIKE 'SCRIBD-DOC-999%';`);
+    await query(`DELETE FROM jobs WHERE config->>'test' = 'true';`);
+
     // 1. Check Tables Exist
-    console.log("\n[TEST 1] Checking all tables exist...");
+    console.log("\n[TEST 1] Checking all tables exist in Supabase...");
     const tablesRes = await query(`
       SELECT table_name 
       FROM information_schema.tables 
@@ -79,7 +89,6 @@ async function runTests() {
       );
     } catch (err: any) {
       if (err.code === "23505") {
-        // unique_violation
         duplicateSearchTaskRejected = true;
         console.log("✅ Correctly rejected duplicate search task (23505 unique_violation).");
       } else {
@@ -118,7 +127,7 @@ async function runTests() {
       throw new Error("Failed to reject duplicate document!");
     }
 
-    // 5. Test Classifications CHECK Constraint
+    // 5. Test Classifications CHECK Constraint & Foreign Key Protection
     console.log("\n[TEST 5] Testing classifications CHECK constraint...");
     // Valid insert
     await query(
@@ -145,7 +154,6 @@ async function runTests() {
       );
     } catch (err: any) {
       if (err.code === "23514") {
-        // check_violation
         invalidCheckRejected = true;
         console.log("✅ Correctly rejected invalid classification enum (23514 check_violation).");
       } else {
@@ -156,14 +164,32 @@ async function runTests() {
       throw new Error("Failed to reject invalid classification value!");
     }
 
-    // Cleanup test data
-    console.log("\n[TEST 6] Cleaning up test rows...");
-    await query(`DELETE FROM jobs WHERE id = $1;`, [jobId]);
+    // 6. Test ON DELETE RESTRICT on documents -> classifications
+    console.log("\n[TEST 6] Testing ON DELETE RESTRICT on documents -> classifications...");
+    let restrictWorked = false;
+    try {
+      await query(`DELETE FROM documents WHERE id = $1;`, [docId]);
+    } catch (err: any) {
+      if (err.code === "23503") {
+        restrictWorked = true;
+        console.log("✅ Correctly prevented document deletion while classification exists (23503 ON DELETE RESTRICT).");
+      } else {
+        throw err;
+      }
+    }
+    if (!restrictWorked) {
+      throw new Error("Failed to enforce ON DELETE RESTRICT!");
+    }
+
+    // 7. Cleanup test data in proper order
+    console.log("\n[TEST 7] Cleaning up test rows in proper dependency order...");
+    await query(`DELETE FROM classifications WHERE document_id = $1;`, [docId]);
     await query(`DELETE FROM documents WHERE id IN ($1, $2);`, [docId, doc2Id]);
-    console.log("✅ Cascade deletion and cleanup succeeded.");
+    await query(`DELETE FROM jobs WHERE id = $1;`, [jobId]);
+    console.log("✅ Cleaned up test rows cleanly.");
 
     console.log("\n==================================================");
-    console.log("🎉 ALL SCHEMA & CONSTRAINT TESTS PASSED!");
+    console.log("🎉 ALL SCHEMA & CONSTRAINT TESTS PASSED 100%!");
     console.log("==================================================");
   } catch (error: any) {
     console.error("❌ Schema Test Failed:", error);
