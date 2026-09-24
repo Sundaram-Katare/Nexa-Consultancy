@@ -30,16 +30,17 @@ This document outlines the foundational architectural decisions for the Reusable
 
 ---
 
-## ADR-003: Single Source of Truth — PostgreSQL
+## ADR-003: Single Source of Truth — Supabase Cloud (Managed PostgreSQL)
 * **Status**: Accepted
-* **Context**: The system must persist search matrices, checkpoints, deduplication states, extracted transcript records, and audit logs with ACID compliance, robust indexing, and complex analytical query support.
-* **Decision**: Use **PostgreSQL 16** as the authoritative single source of truth.
+* **Context**: The system must persist search matrices, checkpoints, deduplication states, extracted transcript records, and audit logs with ACID compliance, robust indexing, and instant web visibility for management without requiring local database container overhead.
+* **Decision**: Use **Supabase Cloud (Managed PostgreSQL 15/16)** as the authoritative single source of truth.
 * **Rationale**:
-  * Strong relational integrity and constraints ensuring deduplication and non-null minimum fields.
+  * Cloud-hosted PostgreSQL with zero local RAM/disk footprint on developer/runner machines.
+  * Instant web-based Table Editor and Dashboard for management to monitor live results, filter by country/status, and export CSV/Excel directly.
+  * Direct standard PostgreSQL connection string (`DATABASE_URL`) supported natively by Node.js and n8n.
   * Powerful `JSONB` support for storing dynamic document metadata and raw DOM extracts without schema rigidity.
-  * High-performance transactional checkpointing that survives abrupt process or machine restarts.
-  * Rich analytical query capabilities for real-time management metrics (aggregations by country, institution, duration category).
-* **Tradeoffs**: Requires database container hosting compared to a flat SQLite file, but provides superior concurrency and multi-process safety.
+  * Generous free tier (500MB storage, easily accommodating 100,000+ transcript records).
+* **Tradeoffs**: Requires internet connectivity (which is already necessary for the browser automation).
 
 ---
 
