@@ -193,4 +193,35 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       });
     }
   );
+
+  // POST /jobs/:id/plan - Generate deterministic search tasks for the job
+  fastify.post(
+    "/:id/plan",
+    {
+      schema: {
+        params: jobParamsSchema,
+      },
+    },
+    async (request: FastifyRequest<{ Params: JobParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const job = await getJobById(id);
+
+      if (!job) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Job with ID '${id}' was not found.`,
+        });
+      }
+
+      const { generateTasks } = await import("../planner/searchPlanner");
+      const planResult = await generateTasks(id, job.config);
+
+      return reply.send({
+        statusCode: 200,
+        message: "Search plan generated successfully",
+        ...planResult,
+      });
+    }
+  );
 };

@@ -1,0 +1,192 @@
+import { browserManager } from "../browser/browserManager";
+import { adapterRegistry } from "../adapters";
+import {
+  getSearchTaskById,
+  updateSearchTaskProgress,
+  insertSearchHistory,
+  insertPendingDocument,
+  insertCheckpoint,
+} from "../db/queries/searchTasks";
+import { AdapterError } from "../adapters/baseAdapter";
+import { query } from "../db/pool";
+
+export interface ExecutionResult {
+  searchTaskId: string;
+  jobId: string;
+  queryText: string;
+  pagesCrawled: number;
+  totalDocumentsFound: number;
+  newDocumentsInserted: number;
+  duplicatesSkipped: number;
+  finalStatus: string;
+  finalPage: number;
+}
+
+/**
+ * Executes a single search task through the target adapter with deep pagination,
+ * incremental checkpointing, deduplicated document ingestion, and error resilience.
+ */
+export async function runTask(
+  searchTaskId: string,
+  maxPages = 20
+): Promise<ExecutionResult> {
+  // 1. Load task record from database
+  const task = await getSearchTaskById(searchTaskId);
+  if (!task) {
+    throw new Error(`Search task with ID '${searchTaskId}' was not found.`);
+  }
+
+  console.log(
+    `[EXECUTOR] Starting search task ${task.id} (${task.source_name}): "${task.query_text}" (Starting at Page ${task.page})`
+  );
+
+  // 2. Mark task as RUNNING
+  await updateSearchTaskProgress(task.id, task.page, "RUNNING");
+
+  // 3. Resolve source adapter
+  const adapter = adapterRegistry.get(task.source_name);
+
+  // 4. Create isolated browser session
+  let sessionId = "";
+  let currentPage = task.page || 1;
+  let pagesCrawled = 0;
+  let totalDocumentsFound = 0;
+  let newDocumentsInserted = 0;
+  let duplicatesSkipped = 0;
+
+  try {
+    sessionId = await browserManager.newSession();
+    const page = browserManager.getPage(sessionId);
+    const session = { id: sessionId, page };
+
+    // 5. Pagination Loop
+    while (currentPage <= maxPages) {
+      console.log(`[EXECUTOR] Task ${task.id} executing page ${currentPage}/${maxPages}...`);
+
+      let resultPage;
+      if (currentPage === 1) {
+        resultPage = await adapter.search(session, task.query_text);
+      } else {
+        resultPage = await adapter.getNextPage(session, currentPage - 1);
+      }
+
+      pagesCrawled++;
+
+      // Check for empty or exhausted results
+      if (!resultPage || resultPage.results.length === 0) {
+        console.log(`[EXECUTOR] No results on page ${currentPage}. Search exhausted.`);
+        await insertSearchHistory(task.id, 0, {
+          page: currentPage,
+          rawResultCount: 0,
+          hasNextPage: false,
+        });
+        await updateSearchTaskProgress(task.id, currentPage, "RUNNING");
+        break;
+      }
+
+      // Record search history for this page
+      await insertSearchHistory(task.id, resultPage.results.length, {
+        page: currentPage,
+        rawResultCount: resultPage.rawResultCount,
+        hasNextPage: resultPage.hasNextPage,
+      });
+
+      // Ingest document candidates with deduplication
+      for (const item of resultPage.results) {
+        totalDocumentsFound++;
+        const ingestRes = await insertPendingDocument({
+          sourceId: task.source_id,
+          sourceDocId: item.sourceDocumentId,
+          canonicalUrl: item.canonicalUrl,
+          title: item.titleRaw,
+          countryId: task.country_id,
+          institution: task.institution,
+        });
+
+        if (ingestRes.inserted) {
+          newDocumentsInserted++;
+        } else {
+          duplicatesSkipped++;
+        }
+      }
+
+      // Incrementally persist progress and checkpoint after every page
+      await updateSearchTaskProgress(task.id, currentPage, "RUNNING");
+      await insertCheckpoint(
+        task.job_id,
+        task.id,
+        currentPage,
+        totalDocumentsFound,
+        "IN_PROGRESS"
+      );
+
+      // Check if site has more pages
+      if (!resultPage.hasNextPage) {
+        console.log(`[EXECUTOR] Target site indicates no further pages. Pagination finished.`);
+        break;
+      }
+
+      currentPage++;
+    }
+
+    // 6. Mark task COMPLETED
+    await updateSearchTaskProgress(task.id, currentPage, "COMPLETED");
+    await insertCheckpoint(
+      task.job_id,
+      task.id,
+      currentPage,
+      totalDocumentsFound,
+      "COMPLETED"
+    );
+
+    console.log(
+      `[EXECUTOR] Task ${task.id} COMPLETED: ${pagesCrawled} pages crawled, ${totalDocumentsFound} docs found (${newDocumentsInserted} new, ${duplicatesSkipped} duplicates).`
+    );
+
+    return {
+      searchTaskId: task.id,
+      jobId: task.job_id,
+      queryText: task.query_text,
+      pagesCrawled,
+      totalDocumentsFound,
+      newDocumentsInserted,
+      duplicatesSkipped,
+      finalStatus: "COMPLETED",
+      finalPage: currentPage,
+    };
+  } catch (err: any) {
+    console.error(`[EXECUTOR] Task ${task.id} encountered error:`, err.message);
+
+    // Map error to proper failure status
+    let finalStatus: "BLOCKED" | "FAILED" = "FAILED";
+    let category = "UNKNOWN_ERROR";
+
+    if (err instanceof AdapterError) {
+      category = err.category;
+      if (
+        err.category === "RATE_LIMITED" ||
+        err.category === "BLOCKED_OR_CAPTCHA" ||
+        err.category === "AUTH_REQUIRED"
+      ) {
+        finalStatus = "BLOCKED";
+      }
+    }
+
+    await updateSearchTaskProgress(task.id, currentPage, finalStatus);
+
+    // Log to errors table
+    try {
+      await query(
+        `INSERT INTO errors (job_id, search_task_id, error_category, message, occurred_at)
+         VALUES ($1, $2, $3, $4, NOW());`,
+        [task.job_id, task.id, category, err.message]
+      );
+    } catch {}
+
+    throw err;
+  } finally {
+    if (sessionId) {
+      await browserManager.closeSession(sessionId);
+    }
+  }
+}

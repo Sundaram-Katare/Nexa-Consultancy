@@ -60,6 +60,10 @@ export class SlideShareAdapter extends BaseSourceAdapter {
       waitUntil: "domcontentloaded",
     });
 
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 3000 });
+    } catch {}
+
     // Wait for either result cards or empty state
     try {
       await page.waitForSelector(
@@ -98,6 +102,10 @@ export class SlideShareAdapter extends BaseSourceAdapter {
       timeout: SLIDESHARE_CONFIG.NAVIGATION_TIMEOUT_MS,
       waitUntil: "domcontentloaded",
     });
+
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 3000 });
+    } catch {}
 
     try {
       await page.waitForSelector(

@@ -13,7 +13,7 @@ export const SLIDESHARE_SELECTORS = {
 
   // Result Cards on Search Page
   // Sourced from: <a class="SlideshowCardLink-module__vAXFxW__root" data-cy="slideshow-card-link" data-testid="slideshow-card-link" ...>
-  RESULT_CARD: 'a[data-cy="slideshow-card-link"], a[data-testid="slideshow-card-link"], a[class*="SlideshowCardLink"]',
+  RESULT_CARD: 'a[data-cy="slideshow-card-link"], a[data-testid="slideshow-card-link"], a[class*="SlideshowCardLink"], a[href*="/slideshow/"]',
 
   // Result Title Link
   RESULT_TITLE_LINK: 'a[data-cy="slideshow-card-link"], a[data-testid="slideshow-card-link"]',
