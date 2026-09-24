@@ -13,7 +13,8 @@
     "test:schema": "ts-node-dev --transpile-only src/test-schema.ts",
     "test:api": "ts-node-dev --transpile-only src/test-api.ts",
     "test:browser": "ts-node-dev --transpile-only src/test-browser.ts",
-    "test:adapter": "ts-node-dev --transpile-only src/test-adapter.ts"
+    "test:adapter": "ts-node-dev --transpile-only src/test-adapter.ts",
+    "test:slideshare": "ts-node-dev --transpile-only src/test-slideshare.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
