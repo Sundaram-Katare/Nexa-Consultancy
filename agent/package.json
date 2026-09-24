@@ -17,7 +17,8 @@
     "test:slideshare": "ts-node-dev --transpile-only src/test-slideshare.ts",
     "test:planner": "ts-node-dev --transpile-only src/test-planner.ts",
     "test:extraction": "ts-node-dev --transpile-only src/test-extraction.ts",
-    "test:dedup": "ts-node-dev --transpile-only src/test-dedup.ts"
+    "test:dedup": "ts-node-dev --transpile-only src/test-dedup.ts",
+    "test:relevance": "ts-node-dev --transpile-only src/test-relevance.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

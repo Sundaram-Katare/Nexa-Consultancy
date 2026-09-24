@@ -1,6 +1,10 @@
 import { FastifyInstance, FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import { processPendingDocuments } from "../executor/extractionWorker";
 import {
+  runRelevanceFilter,
+  getDocumentsNeedingRelevanceReview,
+} from "../relevance/relevanceFilter";
+import {
   getDocumentById,
   getDocumentEvidence,
   getDocumentErrors,
@@ -8,6 +12,11 @@ import {
 } from "../db/queries/documents";
 
 interface ProcessDocumentsQuery {
+  sourceId?: string;
+  limit?: string | number;
+}
+
+interface RelevanceFilterQuery {
   sourceId?: string;
   limit?: string | number;
 }
@@ -21,6 +30,44 @@ interface DocumentParams {
 }
 
 export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  // POST /documents/relevance-filter?sourceId=X&limit=N - Deterministic relevance filter
+  fastify.post(
+    "/relevance-filter",
+    async (
+      request: FastifyRequest<{ Querystring: RelevanceFilterQuery }>,
+      reply: FastifyReply
+    ) => {
+      const sourceId = request.query.sourceId;
+      const limitRaw = request.query.limit ? Number(request.query.limit) : 20;
+      const limit = isNaN(limitRaw) || limitRaw <= 0 ? 20 : Math.min(limitRaw, 100);
+
+      try {
+        const summary = await runRelevanceFilter(sourceId, limit);
+        return reply.status(200).send({
+          statusCode: 200,
+          message: `Relevance filter processed ${summary.totalProcessed} extracted documents`,
+          data: summary,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "RelevanceFilterError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // GET /documents/needs-relevance-review - Review queue for ambiguous documents
+  fastify.get("/needs-relevance-review", async (request, reply: FastifyReply) => {
+    const queue = await getDocumentsNeedingRelevanceReview();
+    return reply.send({
+      statusCode: 200,
+      count: queue.length,
+      queue,
+    });
+  });
+
   // GET /documents/duplicates?confidence=0.6 - List Level-3 flagged duplicates for human review
   fastify.get(
     "/duplicates",
