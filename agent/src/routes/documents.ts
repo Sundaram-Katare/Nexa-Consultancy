@@ -10,12 +10,16 @@ import {
   getDocumentErrors,
   getFlaggedDuplicates,
 } from "../db/queries/documents";
-
 import {
   extractDurationSignals,
   extractDurationSignalsBatch,
   getEvidenceSignals,
 } from "../evidence/evidenceExtractor";
+import {
+  classify,
+  classifyBatch,
+  getDocumentClassification,
+} from "../classification/classificationEngine";
 
 interface ProcessDocumentsQuery {
   sourceId?: string;
@@ -32,6 +36,11 @@ interface BatchEvidenceQuery {
   limit?: string | number;
 }
 
+interface BatchClassifyQuery {
+  sourceId?: string;
+  limit?: string | number;
+}
+
 interface DuplicatesQuery {
   confidence?: string | number;
 }
@@ -41,7 +50,73 @@ interface DocumentParams {
 }
 
 export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
-  // POST /documents/extract-evidence-batch?sourceId=X&limit=N - Batch extract duration signals
+  // 1. POST /documents/process?sourceId=X&limit=N - Trigger document extraction batch
+  fastify.post(
+    "/process",
+    async (
+      request: FastifyRequest<{ Querystring: ProcessDocumentsQuery }>,
+      reply: FastifyReply
+    ) => {
+      const sourceId = request.query.sourceId || "slideshare";
+      const limitRaw = request.query.limit ? Number(request.query.limit) : 5;
+      const limit = isNaN(limitRaw) || limitRaw <= 0 ? 5 : Math.min(limitRaw, 50);
+
+      try {
+        const summary = await processPendingDocuments(sourceId, limit);
+        return reply.status(200).send({
+          statusCode: 200,
+          message: `Processed ${summary.totalProcessed} pending documents`,
+          data: summary,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "ExtractionError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // 2. POST /documents/relevance-filter?sourceId=X&limit=N - Deterministic relevance filter
+  fastify.post(
+    "/relevance-filter",
+    async (
+      request: FastifyRequest<{ Querystring: RelevanceFilterQuery }>,
+      reply: FastifyReply
+    ) => {
+      const sourceId = request.query.sourceId;
+      const limitRaw = request.query.limit ? Number(request.query.limit) : 20;
+      const limit = isNaN(limitRaw) || limitRaw <= 0 ? 20 : Math.min(limitRaw, 100);
+
+      try {
+        const summary = await runRelevanceFilter(sourceId, limit);
+        return reply.status(200).send({
+          statusCode: 200,
+          message: `Relevance filter processed ${summary.totalProcessed} extracted documents`,
+          data: summary,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "RelevanceFilterError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // 3. GET /documents/needs-relevance-review - Review queue for ambiguous documents
+  fastify.get("/needs-relevance-review", async (request, reply: FastifyReply) => {
+    const queue = await getDocumentsNeedingRelevanceReview();
+    return reply.send({
+      statusCode: 200,
+      count: queue.length,
+      queue,
+    });
+  });
+
+  // 4. POST /documents/extract-evidence-batch?sourceId=X&limit=N - Batch extract duration signals
   fastify.post(
     "/extract-evidence-batch",
     async (
@@ -69,7 +144,7 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     }
   );
 
-  // POST /documents/:id/extract-evidence - Extract duration signals for single document
+  // 5. POST /documents/:id/extract-evidence - Extract duration signals for single document
   fastify.post(
     "/:id/extract-evidence",
     async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
@@ -102,7 +177,7 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     }
   );
 
-  // GET /documents/:id/signals - Retrieve structured duration signals for document
+  // 6. GET /documents/:id/signals - Retrieve structured duration signals for document
   fastify.get(
     "/:id/signals",
     async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
@@ -125,11 +200,12 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       });
     }
   );
-  // POST /documents/relevance-filter?sourceId=X&limit=N - Deterministic relevance filter
+
+  // 7. POST /documents/classify-batch?sourceId=X&limit=N - Batch classify candidate documents
   fastify.post(
-    "/relevance-filter",
+    "/classify-batch",
     async (
-      request: FastifyRequest<{ Querystring: RelevanceFilterQuery }>,
+      request: FastifyRequest<{ Querystring: BatchClassifyQuery }>,
       reply: FastifyReply
     ) => {
       const sourceId = request.query.sourceId;
@@ -137,33 +213,83 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       const limit = isNaN(limitRaw) || limitRaw <= 0 ? 20 : Math.min(limitRaw, 100);
 
       try {
-        const summary = await runRelevanceFilter(sourceId, limit);
+        const summary = await classifyBatch(sourceId, limit);
         return reply.status(200).send({
           statusCode: 200,
-          message: `Relevance filter processed ${summary.totalProcessed} extracted documents`,
+          message: `Classified ${summary.totalProcessed} documents (2+ Years: ${summary.twoPlusYearsCount}, <2 Years: ${summary.lessThanTwoYearsCount}, Needs Review: ${summary.needsReviewCount})`,
           data: summary,
         });
       } catch (err: any) {
         return reply.status(500).send({
           statusCode: 500,
-          error: "RelevanceFilterError",
+          error: "ClassificationError",
           message: err.message,
         });
       }
     }
   );
 
-  // GET /documents/needs-relevance-review - Review queue for ambiguous documents
-  fastify.get("/needs-relevance-review", async (request, reply: FastifyReply) => {
-    const queue = await getDocumentsNeedingRelevanceReview();
-    return reply.send({
-      statusCode: 200,
-      count: queue.length,
-      queue,
-    });
-  });
+  // 8. POST /documents/:id/classify - Classify single document based on evidence signals
+  fastify.post(
+    "/:id/classify",
+    async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const doc = await getDocumentById(id);
 
-  // GET /documents/duplicates?confidence=0.6 - List Level-3 flagged duplicates for human review
+      if (!doc) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Document with ID '${id}' was not found.`,
+        });
+      }
+
+      try {
+        const record = await classify(id);
+        return reply.status(200).send({
+          statusCode: 200,
+          message: `Document classified as ${record.classification}`,
+          data: record,
+        });
+      } catch (err: any) {
+        return reply.status(500).send({
+          statusCode: 500,
+          error: "ClassificationError",
+          message: err.message,
+        });
+      }
+    }
+  );
+
+  // 9. GET /documents/:id/classification - Retrieve classification result for document
+  fastify.get(
+    "/:id/classification",
+    async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const doc = await getDocumentById(id);
+
+      if (!doc) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Document with ID '${id}' was not found.`,
+        });
+      }
+
+      const classification = await getDocumentClassification(id);
+      if (!classification) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Classification record for document '${id}' was not found.`,
+        });
+      }
+
+      return reply.send(classification);
+    }
+  );
+
+  // 10. GET /documents/duplicates?confidence=0.6 - List Level-3 flagged duplicates for human review
   fastify.get(
     "/duplicates",
     async (
@@ -182,35 +308,8 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       });
     }
   );
-  // POST /documents/process?sourceId=X&limit=N - Trigger document extraction batch
-  fastify.post(
-    "/process",
-    async (
-      request: FastifyRequest<{ Querystring: ProcessDocumentsQuery }>,
-      reply: FastifyReply
-    ) => {
-      const sourceId = request.query.sourceId || "slideshare";
-      const limitRaw = request.query.limit ? Number(request.query.limit) : 5;
-      const limit = isNaN(limitRaw) || limitRaw <= 0 ? 5 : Math.min(limitRaw, 50);
 
-      try {
-        const summary = await processPendingDocuments(sourceId, limit);
-        return reply.status(200).send({
-          statusCode: 200,
-          message: `Processed ${summary.totalProcessed} pending documents`,
-          data: summary,
-        });
-      } catch (err: any) {
-        return reply.status(500).send({
-          statusCode: 500,
-          error: "ExtractionError",
-          message: err.message,
-        });
-      }
-    }
-  );
-
-  // GET /documents/:id - Get document details with status & attempts
+  // 11. GET /documents/:id - Get document details with status & attempts
   fastify.get(
     "/:id",
     async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
@@ -229,7 +328,7 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     }
   );
 
-  // GET /documents/:id/evidence - Get extracted evidence blocks for a document
+  // 12. GET /documents/:id/evidence - Get extracted evidence blocks for a document
   fastify.get(
     "/:id/evidence",
     async (request: FastifyRequest<{ Params: DocumentParams }>, reply: FastifyReply) => {
