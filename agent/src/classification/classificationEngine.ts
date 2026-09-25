@@ -1,11 +1,15 @@
 import { query } from "../db/pool";
 import { getDocumentById } from "../db/queries/documents";
-import { getEvidenceSignals } from "../evidence/evidenceExtractor";
+import {
+  getEvidenceSignals,
+  extractDurationSignals,
+} from "../evidence/evidenceExtractor";
 import {
   candidateClassification,
   ClassificationCategory,
   ClassificationDecision,
 } from "./rules";
+import { saveCheckpoint } from "../pipeline/checkpointService";
 
 export interface ClassificationRow {
   id: string;
@@ -49,8 +53,12 @@ export async function classify(documentId: string): Promise<ClassificationRow> {
     throw new Error(`Document with ID '${documentId}' was not found.`);
   }
 
-  // 1. Load evidence signals
-  const signals = await getEvidenceSignals(documentId);
+  // 1. Load evidence signals (extract if not yet done)
+  let signals = await getEvidenceSignals(documentId);
+  if (signals.length === 0) {
+    signals = await extractDurationSignals(documentId);
+  }
+
   console.log(
     `[CLASSIFIER] Classifying document ${documentId} ("${doc.title}") using ${signals.length} evidence signals...`
   );
@@ -104,7 +112,8 @@ export async function classify(documentId: string): Promise<ClassificationRow> {
  */
 export async function classifyBatch(
   sourceId?: string,
-  limit: number = 20
+  limit: number = 20,
+  jobId?: string
 ): Promise<BatchClassificationSummary> {
   console.log(
     `[CLASSIFIER] Running batch classification (source: ${sourceId || "ALL"}, limit: ${limit})...`
@@ -165,6 +174,28 @@ export async function classifyBatch(
       confidence: Number(classificationRecord.confidence),
       reasoning: classificationRecord.reasoning,
     });
+
+    if (jobId) {
+      await saveCheckpoint(
+        jobId,
+        null,
+        null,
+        results.length,
+        "RUNNING",
+        "CLASSIFICATION"
+      );
+    }
+  }
+
+  if (jobId && docs.length > 0) {
+    await saveCheckpoint(
+      jobId,
+      null,
+      null,
+      results.length,
+      "COMPLETED",
+      "CLASSIFICATION"
+    );
   }
 
   return {

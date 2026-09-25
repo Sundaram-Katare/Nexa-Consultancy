@@ -224,4 +224,37 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       });
     }
   );
+
+  // POST /jobs/:id/resume-full - Re-drive full pipeline to completion from point of interruption
+  fastify.post(
+    "/:id/resume-full",
+    {
+      schema: {
+        params: jobParamsSchema,
+      },
+    },
+    async (request: FastifyRequest<{ Params: JobParams }>, reply: FastifyReply) => {
+      const { id } = request.params;
+      const job = await getJobById(id);
+
+      if (!job) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Job with ID '${id}' was not found.`,
+        });
+      }
+
+      const { resumeJob } = await import("../pipeline/jobRunner");
+      const summary = await resumeJob(id);
+
+      return reply.send({
+        statusCode: 200,
+        message: "Pipeline resume executed successfully",
+        job_id: id,
+        ...summary,
+      });
+    }
+  );
 };
+

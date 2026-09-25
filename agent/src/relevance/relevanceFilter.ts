@@ -1,6 +1,7 @@
 import { query } from "../db/pool";
 import { getDocumentEvidence } from "../db/queries/documents";
 import { deterministicRelevanceCheck, RelevanceVerdict } from "./keywordFilter";
+import { saveCheckpoint } from "../pipeline/checkpointService";
 
 export interface DocumentRelevanceResult {
   id: string;
@@ -26,7 +27,8 @@ export interface RelevanceFilterSummary {
  */
 export async function runRelevanceFilter(
   sourceId?: string,
-  limit: number = 20
+  limit: number = 20,
+  jobId?: string
 ): Promise<RelevanceFilterSummary> {
   console.log(
     `[RELEVANCE_FILTER] Running relevance filter (source: ${sourceId || "ALL"}, limit: ${limit})...`
@@ -130,6 +132,28 @@ export async function runRelevanceFilter(
       confidence: check.confidence,
       reason: check.reason,
     });
+
+    if (jobId) {
+      await saveCheckpoint(
+        jobId,
+        null,
+        null,
+        results.length,
+        "RUNNING",
+        "RELEVANCE_FILTER"
+      );
+    }
+  }
+
+  if (jobId && docs.length > 0) {
+    await saveCheckpoint(
+      jobId,
+      null,
+      null,
+      results.length,
+      "COMPLETED",
+      "RELEVANCE_FILTER"
+    );
   }
 
   console.log(

@@ -7,6 +7,7 @@ import {
   recordExtractionFailure,
   DocumentRow,
 } from "../db/queries/documents";
+import { saveCheckpoint } from "../pipeline/checkpointService";
 
 export interface ExtractedDocumentResult {
   id: string;
@@ -33,7 +34,8 @@ export interface ExtractionSummary {
  */
 export async function processPendingDocuments(
   sourceId: string,
-  limit: number = 5
+  limit: number = 5,
+  jobId?: string
 ): Promise<ExtractionSummary> {
   const normalizedSource = sourceId.trim().toLowerCase();
   console.log(
@@ -73,7 +75,8 @@ export async function processPendingDocuments(
     const session = { id: sessionId, page };
 
     // 4. Sequential extraction loop
-    for (const doc of pendingDocs) {
+    for (let index = 0; index < pendingDocs.length; index++) {
+      const doc = pendingDocs[index];
       console.log(
         `[EXTRACTION_WORKER] Processing doc ${doc.id} (Attempt ${(doc.extraction_attempts || 0) + 1}/3): ${doc.canonical_url}`
       );
@@ -125,6 +128,17 @@ export async function processPendingDocuments(
         console.log(
           `[EXTRACTION_WORKER] ✅ Document ${doc.id} extracted successfully. (Evidence blocks: ${evidenceCount})`
         );
+
+        if (jobId) {
+          await saveCheckpoint(
+            jobId,
+            null,
+            null,
+            index + 1,
+            "RUNNING",
+            "EXTRACTION"
+          );
+        }
       } catch (err: any) {
         failedCount++;
         const errorMessage = err.message || "Unknown extraction error";
@@ -143,6 +157,17 @@ export async function processPendingDocuments(
           attempts: failureResult.attempts,
           error: errorMessage,
         });
+
+        if (jobId) {
+          await saveCheckpoint(
+            jobId,
+            null,
+            null,
+            index + 1,
+            "RUNNING",
+            "EXTRACTION"
+          );
+        }
       }
     }
   } finally {

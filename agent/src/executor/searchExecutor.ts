@@ -5,8 +5,8 @@ import {
   updateSearchTaskProgress,
   insertSearchHistory,
   insertPendingDocument,
-  insertCheckpoint,
 } from "../db/queries/searchTasks";
+import { saveCheckpoint } from "../pipeline/checkpointService";
 import { AdapterError } from "../adapters/baseAdapter";
 import { query } from "../db/pool";
 
@@ -112,12 +112,13 @@ export async function runTask(
 
       // Incrementally persist progress and checkpoint after every page
       await updateSearchTaskProgress(task.id, currentPage, "RUNNING");
-      await insertCheckpoint(
+      await saveCheckpoint(
         task.job_id,
         task.id,
         currentPage,
         totalDocumentsFound,
-        "IN_PROGRESS"
+        "RUNNING",
+        "SEARCH"
       );
 
       // Check if site has more pages
@@ -131,12 +132,13 @@ export async function runTask(
 
     // 6. Mark task COMPLETED
     await updateSearchTaskProgress(task.id, currentPage, "COMPLETED");
-    await insertCheckpoint(
+    await saveCheckpoint(
       task.job_id,
       task.id,
       currentPage,
       totalDocumentsFound,
-      "COMPLETED"
+      "COMPLETED",
+      "SEARCH"
     );
 
     console.log(
