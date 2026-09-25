@@ -1,0 +1,117 @@
+{
+  "name": "Progress Poll",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "name": "Schedule (Every 5 Min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "schedule-trigger-1"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://agent:3000/jobs?status=RUNNING",
+        "options": {}
+      },
+      "name": "GET /jobs?status=RUNNING",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "http-get-running-jobs-2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobs",
+        "options": {}
+      },
+      "name": "Split Jobs List",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "id": "item-lists-split-3"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=http://agent:3000/jobs/{{ $json.id }}/progress",
+        "options": {}
+      },
+      "name": "GET /jobs/:id/progress",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "id": "http-get-job-progress-4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const p = $input.item.json;\nconsole.log(`[N8N_PROGRESS_POLL] Job ${p.job_id} (${p.status}) Progress: Searches ${p.progress.searches.completed}/${p.progress.searches.total}, 2+ Years: ${p.progress.documents.two_plus_years}, Under 2: ${p.progress.documents.less_than_two_years}, Needs Review: ${p.progress.documents.needs_review}`);\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    jobId: p.job_id,\n    status: p.status,\n    summary: {\n      completedSearches: p.progress.searches.completed,\n      totalSearches: p.progress.searches.total,\n      twoPlusYearsFound: p.progress.documents.two_plus_years,\n      unresolvedErrors: p.progress.errors.unresolved\n    }\n  }\n};"
+      },
+      "name": "Log Progress Rollup",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "log-progress-5"
+    }
+  ],
+  "connections": {
+    "Schedule (Every 5 Min)": {
+      "main": [
+        [
+          {
+            "node": "GET /jobs?status=RUNNING",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /jobs?status=RUNNING": {
+      "main": [
+        [
+          {
+            "node": "Split Jobs List",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Jobs List": {
+      "main": [
+        [
+          {
+            "node": "GET /jobs/:id/progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /jobs/:id/progress": {
+      "main": [
+        [
+          {
+            "node": "Log Progress Rollup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

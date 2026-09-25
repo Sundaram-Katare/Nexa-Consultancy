@@ -23,7 +23,8 @@
     "test:classification": "ts-node-dev --transpile-only src/test-classification.ts",
     "test:resume": "ts-node-dev --transpile-only src/test-resume.ts",
     "test:retry": "ts-node-dev --transpile-only src/test-retry.ts",
-    "test:institutions": "ts-node-dev --transpile-only src/test-institution-discovery.ts"
+    "test:institutions": "ts-node-dev --transpile-only src/test-institution-discovery.ts",
+    "test:orchestration": "ts-node-dev --transpile-only src/test-orchestration.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

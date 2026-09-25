@@ -113,6 +113,41 @@ export async function updateJobStatus(
 }
 
 /**
+ * Lists jobs with optional filtering by status, staleness, and limit.
+ */
+export async function listJobs(options: {
+  status?: string;
+  staleMinutes?: number;
+  limit?: number;
+} = {}): Promise<JobRow[]> {
+  let queryText = `SELECT id, status, created_at, updated_at, config FROM jobs WHERE 1=1`;
+  const params: any[] = [];
+
+  if (options.status) {
+    params.push(options.status.toUpperCase());
+    queryText += ` AND status = $${params.length}`;
+  }
+
+  if (options.staleMinutes && options.staleMinutes > 0) {
+    params.push(options.staleMinutes);
+    queryText += ` AND updated_at < NOW() - ($${params.length} || ' minutes')::interval`;
+  }
+
+  queryText += ` ORDER BY created_at DESC`;
+
+  if (options.limit && options.limit > 0) {
+    params.push(options.limit);
+    queryText += ` LIMIT $${params.length}`;
+  } else {
+    queryText += ` LIMIT 50`;
+  }
+
+  const res = await query<JobRow>(queryText, params);
+  return res.rows;
+}
+
+
+/**
  * Aggregates live progress metrics for a job across search_tasks, documents, classifications, and errors.
  */
 export async function getJobProgress(jobId: string): Promise<JobProgress> {

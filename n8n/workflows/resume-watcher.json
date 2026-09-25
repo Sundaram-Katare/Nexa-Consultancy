@@ -1,0 +1,117 @@
+{
+  "name": "Resume Watcher",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "name": "Schedule (Every 15 Min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "schedule-trigger-1"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://agent:3000/jobs?status=BLOCKED",
+        "options": {}
+      },
+      "name": "GET /jobs?status=BLOCKED",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "http-get-blocked-jobs-2"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "jobs",
+        "options": {}
+      },
+      "name": "Split Blocked Jobs",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [680, 300],
+      "id": "split-jobs-3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://agent:3000/jobs/{{ $json.id }}/resume-full",
+        "options": {}
+      },
+      "name": "POST /jobs/:id/resume-full",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "id": "http-resume-full-4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.item.json;\nconsole.log(`[N8N_RESUME_WATCHER] Auto-resumed Job ${res.job_id || res.jobId}: Status=${res.finalStatus}, TasksRun=${res.stages?.searchTasksRun || 0}, DocsExtracted=${res.stages?.documentsExtracted || 0}`);\nreturn {\n  json: {\n    timestamp: new Date().toISOString(),\n    jobId: res.job_id || res.jobId,\n    resumedStatus: res.finalStatus,\n    summary: res.stages\n  }\n};"
+      },
+      "name": "Log Auto-Resume Action",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "log-resume-5"
+    }
+  ],
+  "connections": {
+    "Schedule (Every 15 Min)": {
+      "main": [
+        [
+          {
+            "node": "GET /jobs?status=BLOCKED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /jobs?status=BLOCKED": {
+      "main": [
+        [
+          {
+            "node": "Split Blocked Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Blocked Jobs": {
+      "main": [
+        [
+          {
+            "node": "POST /jobs/:id/resume-full",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /jobs/:id/resume-full": {
+      "main": [
+        [
+          {
+            "node": "Log Auto-Resume Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

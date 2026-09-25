@@ -10,6 +10,7 @@ import {
   updateJobStatus,
   getJobProgress,
   validateAcceptedCountries,
+  listJobs,
 } from "../db/queries/jobs";
 
 interface JobParams {
@@ -17,6 +18,34 @@ interface JobParams {
 }
 
 export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
+  // GET /jobs - List jobs with filtering (status, staleness, limit)
+  fastify.get(
+    "/",
+    async (
+      request: FastifyRequest<{
+        Querystring: {
+          status?: string;
+          staleMinutes?: string | number;
+          limit?: string | number;
+        };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { status, staleMinutes, limit } = request.query;
+      const jobs = await listJobs({
+        status: status ? String(status).toUpperCase() : undefined,
+        staleMinutes: staleMinutes ? Number(staleMinutes) : undefined,
+        limit: limit ? Number(limit) : undefined,
+      });
+
+      return reply.send({
+        statusCode: 200,
+        total: jobs.length,
+        jobs,
+      });
+    }
+  );
+
   // POST /jobs - Create a new automation job
   fastify.post(
     "/",

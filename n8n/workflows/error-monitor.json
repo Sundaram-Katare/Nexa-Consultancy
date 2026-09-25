@@ -1,0 +1,140 @@
+{
+  "name": "Error Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "name": "Schedule (Every 10 Min)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [240, 300],
+      "id": "schedule-trigger-1"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://agent:3000/errors?resolved=false&requiresHumanIntervention=true",
+        "options": {}
+      },
+      "name": "GET /errors (Unresolved Human-Action)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [460, 300],
+      "id": "http-get-errors-2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.total }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "name": "Any Errors Requiring Action?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "id": "if-errors-exist-3"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "errors",
+        "options": {}
+      },
+      "name": "Split Error List",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [900, 200],
+      "id": "split-errors-4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.item.json;\nconsole.warn(`[N8N_ALERT] 🚨 Action Needed on Job ${err.jobId} (${err.jobStatus}): [${err.errorCategory}] ${err.message}`);\nreturn {\n  json: {\n    alertType: 'HUMAN_INTERVENTION_REQUIRED',\n    errorId: err.id,\n    jobId: err.jobId,\n    jobStatus: err.jobStatus,\n    category: err.errorCategory,\n    message: err.message,\n    occurredAt: err.occurredAt,\n    actionRequired: err.errorCategory === 'CAPTCHA_DETECTED' ? 'Solve anti-bot challenge / rotate IP' : (err.errorCategory === 'LOGIN_REQUIRED' ? 'Authenticate / supply credentials' : 'Review access permissions')\n  }\n};"
+      },
+      "name": "Format Alert Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1120, 200],
+      "id": "format-alert-5"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('[N8N_ERROR_MONITOR] ✅ No unresolved human-intervention errors found.');\nreturn { json: { status: 'CLEAN', timestamp: new Date().toISOString() } };"
+      },
+      "name": "Log Clean Status",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [900, 400],
+      "id": "log-clean-6"
+    }
+  ],
+  "connections": {
+    "Schedule (Every 10 Min)": {
+      "main": [
+        [
+          {
+            "node": "GET /errors (Unresolved Human-Action)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /errors (Unresolved Human-Action)": {
+      "main": [
+        [
+          {
+            "node": "Any Errors Requiring Action?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Errors Requiring Action?": {
+      "main": [
+        [
+          {
+            "node": "Split Error List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log Clean Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Error List": {
+      "main": [
+        [
+          {
+            "node": "Format Alert Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

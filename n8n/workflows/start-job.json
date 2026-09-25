@@ -1,0 +1,140 @@
+{
+  "name": "Start Automation Job",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "start-job",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "id": "webhook-trigger-1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.item.json.body || $input.item.json;\nif (!body.countries || !Array.isArray(body.countries) || body.countries.length === 0) {\n  throw new Error('Validation Failed: \"countries\" must be a non-empty array of country names.');\n}\nreturn {\n  json: {\n    source: body.source || (Array.isArray(body.sources) ? body.sources[0] : body.sources) || 'slideshare',\n    countries: body.countries,\n    education_levels: body.education_levels || ['Bachelor', 'Master'],\n    document_types: body.document_types || ['Transcript'],\n    minimum_completed_years: body.minimum_completed_years !== undefined ? Number(body.minimum_completed_years) : 2.0,\n    max_pages_per_search: body.max_pages_per_search !== undefined ? Number(body.max_pages_per_search) : 10\n  }\n};"
+      },
+      "name": "Validate Job Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "id": "validate-config-2"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://agent:3000/jobs",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "name": "POST /jobs (Create Job)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [680, 300],
+      "id": "http-create-job-3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://agent:3000/jobs/{{ $json.id }}/plan",
+        "options": {}
+      },
+      "name": "POST /jobs/:id/plan (Generate Plan)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [900, 300],
+      "id": "http-plan-job-4"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('POST /jobs (Create Job)').first().json;\nconst plan = $input.item.json;\nreturn {\n  json: {\n    statusCode: 201,\n    message: 'Job created and search plan generated successfully',\n    jobId: prev.id,\n    status: prev.status,\n    tasksPlanned: plan.totalPlanned || 0,\n    countriesPlanned: plan.countriesPlanned || []\n  }\n};"
+      },
+      "name": "Format Webhook Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "id": "format-response-5"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 201
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1340, 300],
+      "id": "respond-webhook-6"
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Validate Job Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Job Config": {
+      "main": [
+        [
+          {
+            "node": "POST /jobs (Create Job)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /jobs (Create Job)": {
+      "main": [
+        [
+          {
+            "node": "POST /jobs/:id/plan (Generate Plan)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /jobs/:id/plan (Generate Plan)": {
+      "main": [
+        [
+          {
+            "node": "Format Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Webhook Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

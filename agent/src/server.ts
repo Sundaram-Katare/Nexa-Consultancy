@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import { jobsRoutes } from "./routes/jobs";
 import { searchTasksRoutes } from "./routes/searchTasks";
 import { documentsRoutes } from "./routes/documents";
+import { errorsRoutes } from "./routes/errors";
 import { debugRoutes } from "./routes/debug";
 import { checkDatabaseHealth } from "./db/pool";
 
@@ -34,6 +35,7 @@ export function buildServer(): FastifyInstance {
   server.register(jobsRoutes, { prefix: "/jobs" });
   server.register(searchTasksRoutes, { prefix: "/search-tasks" });
   server.register(documentsRoutes, { prefix: "/documents" });
+  server.register(errorsRoutes, { prefix: "/errors" });
   server.register(debugRoutes, { prefix: "/debug" });
 
   return server;
