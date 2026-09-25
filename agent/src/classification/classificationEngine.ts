@@ -10,6 +10,9 @@ import {
   ClassificationDecision,
 } from "./rules";
 import { saveCheckpoint } from "../pipeline/checkpointService";
+import { ollamaClient } from "../ai/ollamaClient";
+import { ClassificationResponseSchema } from "../ai/schemas";
+import { buildClassificationPrompt } from "../ai/prompts/classificationPrompt";
 
 export interface ClassificationRow {
   id: string;
@@ -63,19 +66,59 @@ export async function classify(documentId: string): Promise<ClassificationRow> {
     `[CLASSIFIER] Classifying document ${documentId} ("${doc.title}") using ${signals.length} evidence signals...`
   );
 
-  // 2. Compute candidate classification decision
-  const decision: ClassificationDecision = candidateClassification(signals);
+  // 2. Compute candidate classification decision via deterministic rules
+  let decision: ClassificationDecision = candidateClassification(signals);
+  let verificationStatus: string = "RULE_BASED";
+  let modelUsed: string | null = null;
+
+  // 3. Strict Boundary: Only invoke local AI if evidence signals exist but were ambiguous to regex rules
+  // NEVER invoke AI if 0 evidence signals, conflicting evidence, or program length only (anti-hallucination rule)
+  const isEligibleForAiResolution =
+    decision.classification === "NEEDS_REVIEW" &&
+    signals.length > 0 &&
+    decision.reasoning !== "no_evidence_found" &&
+    decision.reasoning !== "conflicting_evidence" &&
+    decision.reasoning !== "program_length_without_completion";
+
+  if (isEligibleForAiResolution) {
+    console.log(
+      `[CLASSIFIER] Ambiguous evidence format for doc ${documentId}. Invoking Ollama AI with ${signals.length} signals...`
+    );
+    try {
+      const { system, prompt } = buildClassificationPrompt(doc.title || "", signals);
+      const aiRes = await ollamaClient.generate(prompt, ClassificationResponseSchema, system);
+
+      verificationStatus = "LLM_ASSISTED";
+      modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:4b-instruct";
+      decision = {
+        classification: aiRes.classification,
+        completedYears: aiRes.completedYears,
+        durationText: decision.durationText,
+        confidence: aiRes.confidence,
+        reasoning: `[LLM-Assisted]: ${aiRes.reasoning}`,
+      };
+      console.log(
+        `[CLASSIFIER] ✅ AI Classification for doc ${documentId}: [${decision.classification}] (Years: ${decision.completedYears}, Conf: ${decision.confidence})`
+      );
+    } catch (err: any) {
+      console.warn(
+        `[CLASSIFIER] ⚠️ Local AI unavailable or invalid response (${err.message}). Retaining deterministic NEEDS_REVIEW.`
+      );
+      verificationStatus = "RULE_BASED";
+      modelUsed = null;
+    }
+  }
 
   console.log(
-    `[CLASSIFIER] Result: [${decision.classification}] (Years: ${decision.completedYears}, Conf: ${decision.confidence}, Reason: ${decision.reasoning})`
+    `[CLASSIFIER] Final Decision: [${decision.classification}] (Years: ${decision.completedYears}, Conf: ${decision.confidence}, Status: ${verificationStatus}, Reason: ${decision.reasoning})`
   );
 
-  // 3. Insert or update classifications table
+  // 4. Insert or update classifications table
   const res = await query<ClassificationRow>(
     `INSERT INTO classifications (
        document_id, classification, completed_years, duration_text, 
        confidence, verification_status, model_used, reasoning, classified_at
-     ) VALUES ($1, $2, $3, $4, $5, 'RULE_BASED', NULL, $6, NOW())
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
      ON CONFLICT (document_id) DO UPDATE 
      SET classification = EXCLUDED.classification,
          completed_years = EXCLUDED.completed_years,
@@ -92,11 +135,13 @@ export async function classify(documentId: string): Promise<ClassificationRow> {
       decision.completedYears,
       decision.durationText,
       decision.confidence,
+      verificationStatus,
+      modelUsed,
       decision.reasoning,
     ]
   );
 
-  // 4. Advance document status to 'CLASSIFIED'
+  // 5. Advance document status to 'CLASSIFIED'
   await query(
     `UPDATE documents 
      SET status = 'CLASSIFIED' 

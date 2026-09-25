@@ -2,6 +2,9 @@ import { query } from "../db/pool";
 import { getDocumentEvidence } from "../db/queries/documents";
 import { deterministicRelevanceCheck, RelevanceVerdict } from "./keywordFilter";
 import { saveCheckpoint } from "../pipeline/checkpointService";
+import { ollamaClient } from "../ai/ollamaClient";
+import { RelevanceResponseSchema } from "../ai/schemas";
+import { buildRelevancePrompt } from "../ai/prompts/relevancePrompt";
 
 export interface DocumentRelevanceResult {
   id: string;
@@ -85,7 +88,13 @@ export async function runRelevanceFilter(
 
     const check = deterministicRelevanceCheck(doc.title || "", evidenceTexts);
 
+    let verdict: RelevanceVerdict = check.verdict;
+    let confidence = check.confidence;
+    let reason = check.reason;
+    let isAiAssisted = false;
+    let modelUsed: string | null = null;
     let newStatus: "CLASSIFIED_PENDING" | "IRRELEVANT" | "NEEDS_RELEVANCE_REVIEW";
+
     if (check.verdict === "RELEVANT") {
       newStatus = "CLASSIFIED_PENDING";
       relevantCount++;
@@ -93,17 +102,47 @@ export async function runRelevanceFilter(
       newStatus = "IRRELEVANT";
       irrelevantCount++;
     } else {
-      newStatus = "NEEDS_RELEVANCE_REVIEW";
-      ambiguousCount++;
+      // AMBIGUOUS - Call Local AI via Ollama
+      console.log(`[RELEVANCE_FILTER] AMBIGUOUS case for doc ${doc.id} ("${doc.title}"). Invoking Ollama AI...`);
+      try {
+        const { system, prompt } = buildRelevancePrompt(doc.title || "", evidenceTexts);
+        const aiRes = await ollamaClient.generate(prompt, RelevanceResponseSchema, system);
+
+        isAiAssisted = true;
+        modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:4b-instruct";
+        confidence = aiRes.confidence;
+        reason = `[AI-Assisted]: ${aiRes.reasoning}`;
+
+        if (aiRes.relevant && aiRes.confidence >= 0.6) {
+          verdict = "RELEVANT";
+          newStatus = "CLASSIFIED_PENDING";
+          relevantCount++;
+        } else {
+          verdict = "NOT_RELEVANT";
+          newStatus = "IRRELEVANT";
+          irrelevantCount++;
+        }
+        console.log(`[RELEVANCE_FILTER] ✅ AI verdict for doc ${doc.id}: ${verdict} (Confidence: ${confidence})`);
+      } catch (err: any) {
+        console.warn(
+          `[RELEVANCE_FILTER] ⚠️ Local AI unavailable or invalid response (${err.message}). Safely falling back to NEEDS_RELEVANCE_REVIEW.`
+        );
+        newStatus = "NEEDS_RELEVANCE_REVIEW";
+        verdict = "AMBIGUOUS";
+        reason = `${check.reason} (AI evaluation skipped/fallback: ${err.name})`;
+        ambiguousCount++;
+      }
     }
 
     // 3. Update document status and store relevance explanation in raw_metadata
     const relevanceMetadata = {
-      verdict: check.verdict,
-      confidence: check.confidence,
-      reason: check.reason,
+      verdict,
+      confidence,
+      reason,
       matchedPositiveTerms: check.matchedPositiveTerms,
       matchedExclusionTerms: check.matchedExclusionTerms,
+      ai_assisted: isAiAssisted,
+      model_used: modelUsed,
       evaluatedAt: new Date().toISOString(),
     };
 
@@ -120,7 +159,7 @@ export async function runRelevanceFilter(
     );
 
     console.log(
-      `[RELEVANCE_FILTER] Doc ${doc.id} ("${doc.title}") -> [${check.verdict}] -> status=${newStatus} (${check.reason})`
+      `[RELEVANCE_FILTER] Doc ${doc.id} ("${doc.title}") -> [${verdict}] -> status=${newStatus} (${reason})`
     );
 
     results.push({
@@ -128,9 +167,9 @@ export async function runRelevanceFilter(
       title: doc.title,
       canonicalUrl: doc.canonical_url,
       status: newStatus,
-      verdict: check.verdict,
-      confidence: check.confidence,
-      reason: check.reason,
+      verdict,
+      confidence,
+      reason,
     });
 
     if (jobId) {

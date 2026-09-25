@@ -26,7 +26,8 @@
     "test:institutions": "ts-node-dev --transpile-only src/test-institution-discovery.ts",
     "test:orchestration": "ts-node-dev --transpile-only src/test-orchestration.ts",
     "test:dashboard": "ts-node-dev --transpile-only src/test-dashboard.ts",
-    "test:export": "ts-node-dev --transpile-only src/test-export.ts"
+    "test:export": "ts-node-dev --transpile-only src/test-export.ts",
+    "test:ai": "ts-node-dev --transpile-only src/test-ai.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
@@ -36,7 +37,8 @@
     "fastify": "^5.2.1",
     "node-pg-migrate": "^7.9.1",
     "pg": "^8.13.1",
-    "playwright": "^1.48.0"
+    "playwright": "^1.48.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
