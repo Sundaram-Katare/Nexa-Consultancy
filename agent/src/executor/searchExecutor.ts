@@ -7,8 +7,7 @@ import {
   insertPendingDocument,
 } from "../db/queries/searchTasks";
 import { saveCheckpoint } from "../pipeline/checkpointService";
-import { AdapterError } from "../adapters/baseAdapter";
-import { query } from "../db/pool";
+import { withRetry, PipelineExecutionError } from "../errors";
 
 export interface ExecutionResult {
   searchTaskId: string;
@@ -24,7 +23,7 @@ export interface ExecutionResult {
 
 /**
  * Executes a single search task through the target adapter with deep pagination,
- * incremental checkpointing, deduplicated document ingestion, and error resilience.
+ * incremental checkpointing, deduplicated document ingestion, and centralized retry policy.
  */
 export async function runTask(
   searchTaskId: string,
@@ -63,12 +62,21 @@ export async function runTask(
     while (currentPage <= maxPages) {
       console.log(`[EXECUTOR] Task ${task.id} executing page ${currentPage}/${maxPages}...`);
 
-      let resultPage;
-      if (currentPage === 1) {
-        resultPage = await adapter.search(session, task.query_text);
-      } else {
-        resultPage = await adapter.getNextPage(session, currentPage - 1);
-      }
+      const resultPage = await withRetry(
+        async () => {
+          if (currentPage === 1) {
+            return await adapter.search(session, task.query_text);
+          } else {
+            return await adapter.getNextPage(session, currentPage - 1);
+          }
+        },
+        "NAVIGATION_TIMEOUT",
+        {
+          jobId: task.job_id,
+          searchTaskId: task.id,
+          action: `search_page_${currentPage}`,
+        }
+      );
 
       pagesCrawled++;
 
@@ -157,34 +165,20 @@ export async function runTask(
       finalPage: currentPage,
     };
   } catch (err: any) {
-    console.error(`[EXECUTOR] Task ${task.id} encountered error:`, err.message);
+    console.error(`[EXECUTOR] Task ${task.id} failed after retries exhausted:`, err.message);
 
-    // Map error to proper failure status
     let finalStatus: "BLOCKED" | "FAILED" = "FAILED";
-    let category = "UNKNOWN_ERROR";
-
-    if (err instanceof AdapterError) {
-      category = err.category;
-      if (
-        err.category === "RATE_LIMITED" ||
-        err.category === "BLOCKED_OR_CAPTCHA" ||
-        err.category === "AUTH_REQUIRED"
-      ) {
-        finalStatus = "BLOCKED";
-      }
+    if (
+      err instanceof PipelineExecutionError &&
+      (err.category === "RATE_LIMITED" ||
+        err.category === "CAPTCHA_DETECTED" ||
+        err.category === "LOGIN_REQUIRED" ||
+        err.category === "ACCESS_DENIED")
+    ) {
+      finalStatus = "BLOCKED";
     }
 
     await updateSearchTaskProgress(task.id, currentPage, finalStatus);
-
-    // Log to errors table
-    try {
-      await query(
-        `INSERT INTO errors (job_id, search_task_id, error_category, message, occurred_at)
-         VALUES ($1, $2, $3, $4, NOW());`,
-        [task.job_id, task.id, category, err.message]
-      );
-    } catch {}
-
     throw err;
   } finally {
     if (sessionId) {

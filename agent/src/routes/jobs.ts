@@ -144,12 +144,12 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
         });
       }
 
-      // State Guard: Only PAUSED jobs can transition to RUNNING
-      if (job.status !== "PAUSED") {
+      // State Guard: Only PAUSED or BLOCKED jobs can transition to RUNNING
+      if (job.status !== "PAUSED" && job.status !== "BLOCKED") {
         return reply.status(409).send({
           statusCode: 409,
           error: "Conflict",
-          message: `Cannot resume job with status '${job.status}'. Only PAUSED jobs can be resumed.`,
+          message: `Cannot resume job with status '${job.status}'. Only PAUSED or BLOCKED jobs can be resumed.`,
           current_status: job.status,
         });
       }

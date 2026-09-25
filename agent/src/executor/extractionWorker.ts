@@ -4,10 +4,11 @@ import {
   getPendingDocuments,
   updateDocumentExtracted,
   insertDocumentEvidence,
-  recordExtractionFailure,
   DocumentRow,
 } from "../db/queries/documents";
+import { query } from "../db/pool";
 import { saveCheckpoint } from "../pipeline/checkpointService";
+import { withRetry, PipelineExecutionError } from "../errors";
 
 export interface ExtractedDocumentResult {
   id: string;
@@ -30,7 +31,7 @@ export interface ExtractionSummary {
 /**
  * Worker that pulls PENDING documents discovered by search tasks,
  * opens each in a headless browser, extracts metadata and content text,
- * saves evidence rows, and manages retry / failure thresholds.
+ * saves evidence rows, and uses unified withRetry policy.
  */
 export async function processPendingDocuments(
   sourceId: string,
@@ -78,49 +79,59 @@ export async function processPendingDocuments(
     for (let index = 0; index < pendingDocs.length; index++) {
       const doc = pendingDocs[index];
       console.log(
-        `[EXTRACTION_WORKER] Processing doc ${doc.id} (Attempt ${(doc.extraction_attempts || 0) + 1}/3): ${doc.canonical_url}`
+        `[EXTRACTION_WORKER] Processing doc ${doc.id}: ${doc.canonical_url}`
       );
 
       try {
-        // Open document page
-        await adapter.openDocument(session, {
-          sourceDocumentId: doc.source_document_id,
-          canonicalUrl: doc.canonical_url,
-          titleRaw: doc.title || "",
-          snippetRaw: null,
-        });
-
-        // Extract metadata
-        const metadata = await adapter.extractMetadata(session);
-
-        // Extract content / transcript
-        const content = await adapter.extractContent(session);
-
-        // Update document to EXTRACTED with metadata
-        await updateDocumentExtracted(doc.id, metadata);
-
-        // Insert evidence blocks
         let evidenceCount = 0;
-        if (content && content.textBlocks && content.textBlocks.length > 0) {
-          evidenceCount = await insertDocumentEvidence(
-            doc.id,
-            content.textBlocks,
-            content.extractionMethod || "dom-text"
-          );
-        } else if (metadata.description && metadata.description.trim().length > 10) {
-          // If no transcript blocks but metadata has description, record it as evidence
-          evidenceCount = await insertDocumentEvidence(
-            doc.id,
-            [metadata.description.trim()],
-            "metadata-description"
-          );
-        }
+
+        await withRetry(
+          async () => {
+            // Open document page
+            await adapter.openDocument(session, {
+              sourceDocumentId: doc.source_document_id,
+              canonicalUrl: doc.canonical_url,
+              titleRaw: doc.title || "",
+              snippetRaw: null,
+            });
+
+            // Extract metadata
+            const metadata = await adapter.extractMetadata(session);
+
+            // Extract content / transcript
+            const content = await adapter.extractContent(session);
+
+            // Update document to EXTRACTED with metadata
+            await updateDocumentExtracted(doc.id, metadata);
+
+            // Insert evidence blocks
+            if (content && content.textBlocks && content.textBlocks.length > 0) {
+              evidenceCount = await insertDocumentEvidence(
+                doc.id,
+                content.textBlocks,
+                content.extractionMethod || "dom-text"
+              );
+            } else if (metadata.description && metadata.description.trim().length > 10) {
+              evidenceCount = await insertDocumentEvidence(
+                doc.id,
+                [metadata.description.trim()],
+                "metadata-description"
+              );
+            }
+          },
+          "EXTRACTION_ERROR",
+          {
+            jobId,
+            documentId: doc.id,
+            action: "extract_document",
+          }
+        );
 
         extractedCount++;
         results.push({
           id: doc.id,
           canonicalUrl: doc.canonical_url,
-          title: metadata.title || doc.title,
+          title: doc.title,
           status: "EXTRACTED",
           evidenceCount,
         });
@@ -143,18 +154,26 @@ export async function processPendingDocuments(
         failedCount++;
         const errorMessage = err.message || "Unknown extraction error";
         console.error(
-          `[EXTRACTION_WORKER] ❌ Failed to extract doc ${doc.id}: ${errorMessage}`
+          `[EXTRACTION_WORKER] ❌ Failed to extract doc ${doc.id} after retries exhausted: ${errorMessage}`
         );
 
-        // Record failure and increment retry counter
-        const failureResult = await recordExtractionFailure(doc.id, errorMessage, 3);
+        const attempts = err instanceof PipelineExecutionError ? err.attempts : 1;
+
+        // Transition document to EXTRACTION_FAILED in DB
+        await query(
+          `UPDATE documents 
+           SET status = 'EXTRACTION_FAILED', 
+               extraction_attempts = COALESCE(extraction_attempts, 0) + $2 
+           WHERE id = $1;`,
+          [doc.id, attempts]
+        );
 
         results.push({
           id: doc.id,
           canonicalUrl: doc.canonical_url,
           title: doc.title,
-          status: failureResult.status,
-          attempts: failureResult.attempts,
+          status: "EXTRACTION_FAILED",
+          attempts,
           error: errorMessage,
         });
 

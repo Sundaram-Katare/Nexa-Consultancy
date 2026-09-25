@@ -1,6 +1,7 @@
 import { query } from "../db/pool";
 import { getDocumentById, getDocumentEvidence } from "../db/queries/documents";
 import { findSignalsInText, SignalType } from "./patterns";
+import { withRetry } from "../errors";
 
 export interface EvidenceSignalRow {
   id: string;
@@ -29,64 +30,75 @@ export interface BatchEvidenceSummary {
 
 /**
  * Extracts structured duration signals from all evidence text blocks of a document.
- * Idempotently inserts signals into the evidence_signals table.
+ * Idempotently inserts signals into the evidence_signals table with retry resilience.
  */
 export async function extractDurationSignals(
-  documentId: string
+  documentId: string,
+  jobId?: string
 ): Promise<EvidenceSignalRow[]> {
-  const doc = await getDocumentById(documentId);
-  if (!doc) {
-    throw new Error(`Document with ID '${documentId}' was not found.`);
-  }
+  return await withRetry(
+    async () => {
+      const doc = await getDocumentById(documentId);
+      if (!doc) {
+        throw new Error(`Document with ID '${documentId}' was not found.`);
+      }
 
-  // 1. Fetch raw evidence text blocks
-  const evidenceRows = await getDocumentEvidence(documentId);
-  console.log(
-    `[EVIDENCE_EXTRACTOR] Analyzing ${evidenceRows.length} evidence blocks for doc ${documentId}...`
+      // 1. Fetch raw evidence text blocks
+      const evidenceRows = await getDocumentEvidence(documentId);
+      console.log(
+        `[EVIDENCE_EXTRACTOR] Analyzing ${evidenceRows.length} evidence blocks for doc ${documentId}...`
+      );
+
+      // 2. Scan each evidence block with explicit patterns
+      for (const row of evidenceRows) {
+        const signals = findSignalsInText(row.evidence_text);
+
+        for (const signal of signals) {
+          await query(
+            `INSERT INTO evidence_signals (
+               document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
+             ) VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
+             SET extracted_value = EXCLUDED.extracted_value,
+                 location_ref = EXCLUDED.location_ref;`,
+            [
+              documentId,
+              row.id,
+              signal.signalType,
+              signal.rawText,
+              signal.extractedValue,
+              row.location_ref || "body_text",
+            ]
+          );
+        }
+      }
+
+      // 3. Scan metadata description if present
+      if (doc.raw_metadata?.description) {
+        const descSignals = findSignalsInText(doc.raw_metadata.description);
+        for (const signal of descSignals) {
+          await query(
+            `INSERT INTO evidence_signals (
+               document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
+             ) VALUES ($1, NULL, $2, $3, $4, 'metadata_description')
+             ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
+             SET extracted_value = EXCLUDED.extracted_value,
+                 location_ref = EXCLUDED.location_ref;`,
+            [documentId, signal.signalType, signal.rawText, signal.extractedValue]
+          );
+        }
+      }
+
+      // 4. Return all persisted signals for this document
+      return await getEvidenceSignals(documentId);
+    },
+    "EXTRACTION_ERROR",
+    {
+      jobId,
+      documentId,
+      action: "extract_duration_signals",
+    }
   );
-
-  // 2. Scan each evidence block with explicit patterns
-  for (const row of evidenceRows) {
-    const signals = findSignalsInText(row.evidence_text);
-
-    for (const signal of signals) {
-      await query(
-        `INSERT INTO evidence_signals (
-           document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
-         ) VALUES ($1, $2, $3, $4, $5, $6)
-         ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
-         SET extracted_value = EXCLUDED.extracted_value,
-             location_ref = EXCLUDED.location_ref;`,
-        [
-          documentId,
-          row.id,
-          signal.signalType,
-          signal.rawText,
-          signal.extractedValue,
-          row.location_ref || "body_text",
-        ]
-      );
-    }
-  }
-
-  // 3. Scan metadata description if present
-  if (doc.raw_metadata?.description) {
-    const descSignals = findSignalsInText(doc.raw_metadata.description);
-    for (const signal of descSignals) {
-      await query(
-        `INSERT INTO evidence_signals (
-           document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
-         ) VALUES ($1, NULL, $2, $3, $4, 'metadata_description')
-         ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
-         SET extracted_value = EXCLUDED.extracted_value,
-             location_ref = EXCLUDED.location_ref;`,
-        [documentId, signal.signalType, signal.rawText, signal.extractedValue]
-      );
-    }
-  }
-
-  // 4. Return all persisted signals for this document
-  return await getEvidenceSignals(documentId);
 }
 
 /**
@@ -94,7 +106,8 @@ export async function extractDurationSignals(
  */
 export async function extractDurationSignalsBatch(
   sourceId?: string,
-  limit: number = 20
+  limit: number = 20,
+  jobId?: string
 ): Promise<BatchEvidenceSummary> {
   console.log(
     `[EVIDENCE_EXTRACTOR] Running batch extraction for CLASSIFIED_PENDING documents (source: ${sourceId || "ALL"}, limit: ${limit})...`
@@ -131,7 +144,7 @@ export async function extractDurationSignalsBatch(
   const results: DocumentSignalsResult[] = [];
 
   for (const doc of docs) {
-    const signals = await extractDurationSignals(doc.id);
+    const signals = await extractDurationSignals(doc.id, jobId);
     totalSignalsExtracted += signals.length;
 
     results.push({
