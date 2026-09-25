@@ -50,3 +50,29 @@ export function buildQueryVariations(
   // Return deduplicated query strings
   return Array.from(new Set(queries));
 }
+
+/**
+ * Builds deterministic search query variations for a specific discovered institution.
+ * Combines the institution name with the core academic keyword templates.
+ */
+export function buildInstitutionQueries(
+  institutionName: string,
+  country?: string
+): string[] {
+  const cleanInst = institutionName.trim();
+  if (!cleanInst) return [];
+
+  const queries: string[] = [];
+  for (const keyword of ACADEMIC_KEYWORD_TEMPLATES) {
+    queries.push(`${cleanInst} ${keyword}`);
+  }
+
+  if (country && country.trim()) {
+    const cleanCountry = country.trim();
+    queries.push(`${cleanInst} ${cleanCountry} transcript`);
+    queries.push(`${cleanInst} ${cleanCountry} academic record`);
+  }
+
+  return Array.from(new Set(queries));
+}
+

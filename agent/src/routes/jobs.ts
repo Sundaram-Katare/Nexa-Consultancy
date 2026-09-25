@@ -256,5 +256,88 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       });
     }
   );
+
+  // POST /jobs/:id/discover-institutions - Run second-wave institution discovery & search task generation
+  fastify.post(
+    "/:id/discover-institutions",
+    {
+      schema: {
+        params: jobParamsSchema,
+      },
+    },
+    async (
+      request: FastifyRequest<{
+        Params: JobParams;
+        Querystring: { countryId?: string };
+        Body?: { countryId?: number | string };
+      }>,
+      reply: FastifyReply
+    ) => {
+      const { id } = request.params;
+      const job = await getJobById(id);
+
+      if (!job) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: "Not Found",
+          message: `Job with ID '${id}' was not found.`,
+        });
+      }
+
+      const rawCountryParam =
+        request.query?.countryId || (request.body as any)?.countryId;
+
+      const { discoverFromResults } = await import(
+        "../planner/institutionDiscovery"
+      );
+      const { query: dbQuery } = await import("../db/pool");
+
+      let targetCountryIds: number[] = [];
+
+      if (rawCountryParam) {
+        if (!isNaN(Number(rawCountryParam))) {
+          targetCountryIds.push(Number(rawCountryParam));
+        } else {
+          const cRes = await dbQuery<{ id: number }>(
+            `SELECT id FROM countries WHERE LOWER(name) = LOWER($1);`,
+            [String(rawCountryParam).trim()]
+          );
+          if (cRes.rows.length > 0) {
+            targetCountryIds.push(cRes.rows[0].id);
+          }
+        }
+      } else {
+        // Find all countries associated with this job's tasks
+        const countryRows = await dbQuery<{ country_id: number }>(
+          `SELECT DISTINCT country_id FROM search_tasks WHERE job_id = $1 AND country_id IS NOT NULL;`,
+          [id]
+        );
+        targetCountryIds = countryRows.rows.map((r) => r.country_id);
+      }
+
+      if (targetCountryIds.length === 0) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message:
+            "No valid countryId provided or found for this job. Pass ?countryId=X.",
+        });
+      }
+
+      const summaries = [];
+      for (const cId of targetCountryIds) {
+        const summary = await discoverFromResults(id, cId);
+        summaries.push(summary);
+      }
+
+      return reply.send({
+        statusCode: 200,
+        message: "Institution discovery completed successfully",
+        job_id: id,
+        summaries: summaries.length === 1 ? summaries[0] : summaries,
+      });
+    }
+  );
 };
+
 
