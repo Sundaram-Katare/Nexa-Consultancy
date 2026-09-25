@@ -22,6 +22,8 @@ services:
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
     volumes:
       - n8n_data:/home/node/.n8n
+      - ../n8n/workflows:/workflows:ro
+      - ./init/import-workflows.sh:/docker-entrypoint-init.d/import-workflows.sh:ro
     ports:
       - "${N8N_PORT:-5678}:5678"
     networks:
@@ -39,10 +41,16 @@ services:
       - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       - OLLAMA_URL=${OLLAMA_URL:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5:4b-instruct}
       - AGENT_PORT=${AGENT_PORT:-3000}
       - NODE_ENV=${NODE_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - DEBUG_SQL=${DEBUG_SQL:-false}
+      - SCRIBD_USERNAME=${SCRIBD_USERNAME:-}
+      - SCRIBD_PASSWORD=${SCRIBD_PASSWORD:-}
     volumes:
       - agent_logs:/app/logs
+      - ../dashboard:/dashboard:ro
     ports:
       - "${AGENT_PORT:-3000}:3000"
     networks:

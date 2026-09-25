@@ -9,6 +9,7 @@ import {
 import { query } from "../db/pool";
 import { saveCheckpoint } from "../pipeline/checkpointService";
 import { withRetry, PipelineExecutionError } from "../errors";
+import { concurrencyController } from "../pipeline/concurrencyController";
 
 export interface ExtractedDocumentResult {
   id: string;
@@ -64,11 +65,13 @@ export async function processPendingDocuments(
   // 2. Resolve source adapter
   const adapter = adapterRegistry.get(normalizedSource);
 
-  // 3. Acquire isolated browser session
+  // 3. Acquire concurrency slot & isolated browser session
   let sessionId: string | null = null;
   const results: ExtractedDocumentResult[] = [];
   let extractedCount = 0;
   let failedCount = 0;
+
+  await concurrencyController.acquire(normalizedSource);
 
   try {
     sessionId = await browserManager.newSession();
@@ -193,6 +196,7 @@ export async function processPendingDocuments(
     if (sessionId) {
       await browserManager.closeSession(sessionId);
     }
+    concurrencyController.release(normalizedSource);
   }
 
   const summary: ExtractionSummary = {

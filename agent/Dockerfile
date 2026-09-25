@@ -6,8 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copy application source code
+# Copy application source code, migrations, and configs
 COPY tsconfig.json ./
+COPY migrations/ ./migrations/
 COPY src/ ./src/
 
 # Expose agent port

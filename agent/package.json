@@ -30,7 +30,9 @@
     "test:ai": "ts-node-dev --transpile-only src/test-ai.ts",
     "test:nl-agent": "ts-node-dev --transpile-only src/test-nl-agent.ts",
     "test:scribd": "ts-node-dev --transpile-only src/test-scribd.ts",
-    "test:multi-source": "ts-node-dev --transpile-only src/test-multi-source.ts"
+    "test:multi-source": "ts-node-dev --transpile-only src/test-multi-source.ts",
+    "test:scale": "ts-node-dev --transpile-only src/test-scale-run.ts",
+    "test:recovery": "ts-node-dev --transpile-only src/test-recovery.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

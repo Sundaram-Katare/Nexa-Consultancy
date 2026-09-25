@@ -8,6 +8,7 @@ import {
 } from "../db/queries/searchTasks";
 import { saveCheckpoint } from "../pipeline/checkpointService";
 import { withRetry, PipelineExecutionError } from "../errors";
+import { concurrencyController } from "../pipeline/concurrencyController";
 
 export interface ExecutionResult {
   searchTaskId: string;
@@ -45,13 +46,15 @@ export async function runTask(
   // 3. Resolve source adapter
   const adapter = adapterRegistry.get(task.source_name);
 
-  // 4. Create isolated browser session
+  // 4. Acquire concurrency slot & create isolated browser session
   let sessionId = "";
   let currentPage = task.page || 1;
   let pagesCrawled = 0;
   let totalDocumentsFound = 0;
   let newDocumentsInserted = 0;
   let duplicatesSkipped = 0;
+
+  await concurrencyController.acquire(task.source_name);
 
   try {
     sessionId = await browserManager.newSession();
@@ -184,5 +187,6 @@ export async function runTask(
     if (sessionId) {
       await browserManager.closeSession(sessionId);
     }
+    concurrencyController.release(task.source_name);
   }
 }
