@@ -1,4 +1,5 @@
 {
+  "id": "StartJob001",
   "name": "Start Automation Job",
   "nodes": [
     {

@@ -15,6 +15,12 @@ for file in "$WORKFLOW_DIR"/*.json; do
 done
 
 echo "Activating all imported workflows..."
-n8n update:workflow --all --active=true
+for file in "$WORKFLOW_DIR"/*.json; do
+  WF_ID=$(grep -o '"id": "[^"]*' "$file" | head -n 1 | cut -d'"' -f4)
+  if [ -n "$WF_ID" ]; then
+    echo "  Activating workflow ID: $WF_ID"
+    n8n publish:workflow --id="$WF_ID" 2>/dev/null || n8n update:workflow --id="$WF_ID" --active=true 2>/dev/null || true
+  fi
+done
 
 echo "Workflow import complete."

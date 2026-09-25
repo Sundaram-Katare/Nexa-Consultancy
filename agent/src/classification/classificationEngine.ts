@@ -89,7 +89,7 @@ export async function classify(documentId: string): Promise<ClassificationRow> {
       const aiRes = await ollamaClient.generate(prompt, ClassificationResponseSchema, system);
 
       verificationStatus = "LLM_ASSISTED";
-      modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:4b-instruct";
+      modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:3b";
       decision = {
         classification: aiRes.classification,
         completedYears: aiRes.completedYears,

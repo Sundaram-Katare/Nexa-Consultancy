@@ -37,7 +37,7 @@ Open `docker/.env` in your text editor and populate the required keys:
 | `SUPABASE_ANON_KEY` | Supabase public anonymous API key | Optional |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role secret | Optional |
 | `OLLAMA_URL` | Host/container URL for Ollama local service (`http://ollama:11434`) | **Yes** |
-| `OLLAMA_MODEL` | Local LLM tag (default: `qwen2.5:4b-instruct` or `llama3.2:3b`) | **Yes** |
+| `OLLAMA_MODEL` | Local LLM tag (default: `qwen2.5:3b` or `llama3.2:3b`) | **Yes** |
 | `AGENT_PORT` | Fastify agent API and UI port (default: `3000`) | **Yes** |
 | `SCRIBD_USERNAME` | Optional login email for Scribd adapter document downloads | Optional |
 | `SCRIBD_PASSWORD` | Optional login password for Scribd adapter | Optional |
@@ -68,7 +68,7 @@ docker compose ps
 ### Step 5: Pull the Ollama Local AI Model
 Execute a one-time command to pull the quantized model into the persistent `nexa_ollama_models` volume:
 ```bash
-docker exec -it nexa_ollama ollama pull qwen2.5:4b-instruct
+docker exec -it nexa_ollama ollama pull qwen2.5:3b
 ```
 *(Depending on your internet speed, this download takes approximately 1–3 minutes for the ~2.5 GB model weights).*
 

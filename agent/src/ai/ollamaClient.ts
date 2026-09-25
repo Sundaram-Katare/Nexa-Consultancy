@@ -19,7 +19,7 @@ export class OllamaClient {
       model:
         config?.model ||
         process.env.OLLAMA_MODEL ||
-        "qwen2.5:4b-instruct",
+        "qwen2.5:3b",
       timeoutMs: config?.timeoutMs || 20000,
     };
   }

@@ -36,7 +36,7 @@ You should create your **own dedicated Supabase project** for this deployment.
 
 ### 3. Source Credentials & AI Model Configuration
 - **Scribd Credentials** *(Optional)*: If you have a Scribd account, you can supply `SCRIBD_USERNAME` and `SCRIBD_PASSWORD` in `.env` to enable full document downloads; if omitted, the adapter runs safely in public guest/preview mode.
-- **Ollama AI Model**: The system runs local quantized LLMs (default: `qwen2.5:4b-instruct`) inside Docker for schema-enforced query parsing and ambiguity resolution.
+- **Ollama AI Model**: The system runs local quantized LLMs (default: `qwen2.5:3b`) inside Docker for schema-enforced query parsing and ambiguity resolution.
 
 ### 4. Minimum Machine Specifications
 - **Disk Space**: At least **8 GB** free disk space for Docker base images (Playwright Chromium ~1.2 GB and Ollama model weights ~2.5 GB). Local database storage is not required since PostgreSQL is hosted on Supabase.
@@ -143,7 +143,7 @@ SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 # ==========================================
 OLLAMA_URL=http://ollama:11434
 OLLAMA_HOST_PORT=11434
-OLLAMA_MODEL=qwen2.5:4b-instruct
+OLLAMA_MODEL=qwen2.5:3b
 
 # ==========================================
 # 3. Agent & UI Configuration
@@ -182,7 +182,7 @@ docker compose up -d --build
 ### Step 2.3: Pull Local AI Model (One-Time Step)
 Pull the instruction model weights into Ollama:
 ```bash
-docker exec -it nexa_ollama ollama pull qwen2.5:4b-instruct
+docker exec -it nexa_ollama ollama pull qwen2.5:3b
 ```
 **Expected Result**:
 ```text
@@ -438,6 +438,6 @@ If you ever wish to completely wipe your project data, delete tables or reset yo
 | :--- | :--- | :--- |
 | **`database: disconnected` on `/health`** | Supabase database paused or incorrect connection string | 1. Check if Supabase free project is paused (click **Restore** in dashboard).<br>2. Verify `DATABASE_URL` in `docker/.env` has correct password and port `6543` / `5432`. |
 | **Port Conflict (`bind: address already in use :3000` or `:5678`)** | Local process already using port 3000 or 5678 | Update `AGENT_PORT=3001` or `N8N_PORT=5679` in `docker/.env`, then restart with `docker compose up -d`. |
-| **`AI_UNAVAILABLE` on `/agent/command`** | Ollama container still starting or model not pulled | Run `docker exec -it nexa_ollama ollama pull qwen2.5:4b-instruct` and confirm model appears in `docker exec -it nexa_ollama ollama list`. |
+| **`AI_UNAVAILABLE` on `/agent/command`** | Ollama container still starting or model not pulled | Run `docker exec -it nexa_ollama ollama pull qwen2.5:3b` and confirm model appears in `docker exec -it nexa_ollama ollama list`. |
 | **`n8n-init` shows exited with non-zero code** | Started before n8n became healthy | Ensure `docker compose up -d` uses the built-in healthcheck. Re-run `docker compose up n8n-init` to re-import if needed. |
 | **Playwright Browser Timeout** | Slow target server response | The built-in retry wrapper automatically retries up to 3 times with exponential backoff. You can tune `MIN_REQUEST_DELAY_MS` in adapter configuration if needed. |

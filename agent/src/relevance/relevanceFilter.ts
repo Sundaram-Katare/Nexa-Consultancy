@@ -109,7 +109,7 @@ export async function runRelevanceFilter(
         const aiRes = await ollamaClient.generate(prompt, RelevanceResponseSchema, system);
 
         isAiAssisted = true;
-        modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:4b-instruct";
+        modelUsed = process.env.OLLAMA_MODEL || "qwen2.5:3b";
         confidence = aiRes.confidence;
         reason = `[AI-Assisted]: ${aiRes.reasoning}`;
 
