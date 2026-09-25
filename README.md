@@ -78,7 +78,7 @@ flowchart TD
 | :--- | :--- | :--- |
 | **Runtime & Backend** | **Node.js (TypeScript)** / **Fastify v5** | High-throughput asynchronous agent API and worker runtime |
 | **Browser Automation** | **Playwright (Chromium)** | Isolated headless browser sessions with robust selector fallback |
-| **Database & Pooling** | **PostgreSQL (Supabase)** / `pg` pool | ACID source of truth, idempotent upserts, foreign key integrity |
+| **Database & Pooling** | **PostgreSQL (Supabase (Web))** / `pg` pool | ACID source of truth, idempotent upserts, foreign key integrity |
 | **Workflow Automation** | **n8n Orchestrator** | Decoupled scheduling, heartbeat polling, auto-recovery, error alerts |
 | **Local AI Inference** | **Ollama (`qwen2.5:3b`)** | Strict JSON schema parsing & ambiguity resolution without cloud API costs |
 | **Reporting & Export** | **ExcelJS** / RFC 4180 CSV | Multi-sheet formatted workbooks (9 sheets) and raw datasets |
