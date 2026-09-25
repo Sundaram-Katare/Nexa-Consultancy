@@ -370,3 +370,77 @@ export async function getErrors(
   const res = await query<ErrorDetail>(queryText, params);
   return res.rows;
 }
+
+export interface DashboardDocumentItem {
+  id: string;
+  title: string | null;
+  canonical_url: string;
+  institution: string | null;
+  country_name: string | null;
+  source_name: string | null;
+  status: string;
+  classification: string | null;
+  completed_years: number | null;
+  confidence: number | null;
+  created_at: string;
+  evidence_text: string | null;
+}
+
+/**
+ * Retrieves recently discovered documents with source URLs, institutions, and classification status.
+ */
+export async function getDashboardDocuments(
+  jobId?: string,
+  limit: number = 100,
+  classificationFilter?: string
+): Promise<DashboardDocumentItem[]> {
+  const params: any[] = [];
+  const whereClauses: string[] = ["d.duplicate_of IS NULL"];
+
+  if (jobId) {
+    params.push(jobId);
+    whereClauses.push(`d.id IN (
+      SELECT d2.id FROM documents d2
+      JOIN search_tasks st ON d2.country_id = st.country_id
+      WHERE st.job_id = $${params.length}
+    )`);
+  }
+
+  if (classificationFilter && classificationFilter !== "ALL") {
+    params.push(classificationFilter.toUpperCase());
+    if (classificationFilter.toUpperCase() === "PENDING") {
+      whereClauses.push(`c.classification IS NULL`);
+    } else {
+      whereClauses.push(`c.classification = $${params.length}`);
+    }
+  }
+
+  params.push(limit);
+  const limitParam = `$${params.length}`;
+
+  const queryText = `
+    SELECT 
+      d.id,
+      d.title,
+      d.canonical_url,
+      d.institution,
+      COALESCE(ct.name, 'Unknown') as country_name,
+      COALESCE(s.name, 'web') as source_name,
+      d.status,
+      c.classification,
+      c.completed_years,
+      c.confidence,
+      d.created_at,
+      (SELECT de.evidence_text FROM document_evidence de WHERE de.document_id = d.id ORDER BY de.extracted_at DESC LIMIT 1) as evidence_text
+    FROM documents d
+    LEFT JOIN countries ct ON d.country_id = ct.id
+    LEFT JOIN sources s ON d.source_id = s.id
+    LEFT JOIN classifications c ON d.id = c.document_id
+    WHERE ${whereClauses.join(" AND ")}
+    ORDER BY d.created_at DESC
+    LIMIT ${limitParam};
+  `;
+
+  const res = await query<DashboardDocumentItem>(queryText, params);
+  return res.rows;
+}

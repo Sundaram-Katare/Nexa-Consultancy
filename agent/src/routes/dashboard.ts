@@ -5,12 +5,14 @@ import {
   getByInstitution,
   getProgress,
   getErrors,
+  getDashboardDocuments,
 } from "../db/queries/dashboard";
 
 interface DashboardQuery {
   jobId?: string;
   countryId?: string | number;
   limit?: string | number;
+  classification?: string;
 }
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -25,6 +27,22 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
         statusCode: 200,
         scope: jobId ? { jobId: jobId.trim() } : "ALL_JOBS",
         data: summary,
+      });
+    }
+  );
+
+  // GET /dashboard/documents - Live discovered academic transcripts feed with canonical URLs
+  fastify.get(
+    "/documents",
+    async (request: FastifyRequest<{ Querystring: DashboardQuery }>, reply: FastifyReply) => {
+      const { jobId, limit, classification } = request.query;
+      const maxLimit = limit ? Math.min(Number(limit), 200) : 100;
+      const docs = await getDashboardDocuments(jobId?.trim(), maxLimit, classification?.trim());
+
+      return reply.send({
+        statusCode: 200,
+        total: docs.length,
+        data: docs,
       });
     }
   );

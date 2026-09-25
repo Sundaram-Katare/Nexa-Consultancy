@@ -3,34 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Nexa Intelligence — Academic Transcript Harvesting Dashboard</title>
+  <title>Nexa Operations — Academic Record Ingestion Console</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg-primary: #090d16;
-      --bg-secondary: #0f172a;
-      --bg-card: rgba(30, 41, 59, 0.7);
-      --bg-card-hover: rgba(51, 65, 85, 0.7);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --border-accent: rgba(56, 189, 248, 0.3);
-      --text-primary: #f8fafc;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
+      --bg-body: #f8fafc;
+      --bg-surface: #ffffff;
+      --bg-subtle: #f1f5f9;
+      --bg-muted: #e2e8f0;
       
-      --color-emerald: #10b981;
-      --color-cyan: #06b6d4;
-      --color-sky: #38bdf8;
-      --color-amber: #f59e0b;
-      --color-rose: #f43f5e;
-      --color-purple: #a855f7;
-      --color-indigo: #6366f1;
+      --border-color: #e2e8f0;
+      --border-focus: #3b82f6;
+      
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      
+      --primary: #0f172a;
+      --primary-hover: #1e293b;
+      --accent-blue: #2563eb;
+      
+      --badge-green-bg: #dcfce7;
+      --badge-green-text: #15803d;
+      --badge-amber-bg: #fef3c7;
+      --badge-amber-text: #b45309;
+      --badge-red-bg: #fee2e2;
+      --badge-red-text: #b91c1c;
+      --badge-blue-bg: #e0f2fe;
+      --badge-blue-text: #0369a1;
+      --badge-gray-bg: #f1f5f9;
+      --badge-gray-text: #475569;
 
-      --radius-sm: 8px;
-      --radius-md: 12px;
-      --radius-lg: 16px;
-      --radius-full: 9999px;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+      
+      --radius: 8px;
     }
 
     * {
@@ -40,442 +50,617 @@
     }
 
     body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--bg-primary);
-      color: var(--text-primary);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      background-image: 
-        radial-gradient(circle at 15% 15%, rgba(14, 165, 233, 0.08) 0%, transparent 40%),
-        radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
-      background-attachment: fixed;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Top Navigation Bar */
+    /* Top Navigation */
     header {
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(12px);
+      background: var(--bg-surface);
       border-bottom: 1px solid var(--border-color);
-      padding: 1rem 2rem;
-      position: sticky;
-      top: 0;
-      z-index: 50;
+      padding: 0.85rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 40;
     }
 
-    .brand-group {
+    .brand-section {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.85rem;
     }
 
-    .brand-logo {
-      width: 40px;
-      height: 40px;
-      border-radius: var(--radius-md);
-      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    .brand-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--primary);
+      color: #ffffff;
+      border-radius: 6px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 1.25rem;
-      color: white;
-      box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.02em;
     }
 
     .brand-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.35rem;
+      font-size: 1.05rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
-      background: linear-gradient(to right, #ffffff, #94a3b8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.01em;
+      color: var(--text-main);
     }
 
-    .brand-subtitle {
+    .brand-tagline {
       font-size: 0.75rem;
-      color: var(--color-sky);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 600;
+      color: var(--text-muted);
     }
 
-    .nav-controls {
+    .nav-actions {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
     }
 
-    .scope-select {
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid var(--border-color);
-      color: var(--text-primary);
-      padding: 0.5rem 1rem;
-      border-radius: var(--radius-md);
-      font-size: 0.875rem;
-      outline: none;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .scope-select:hover, .scope-select:focus {
-      border-color: var(--color-sky);
-    }
-
-    .btn-refresh {
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2));
-      border: 1px solid var(--border-accent);
-      color: var(--color-sky);
-      padding: 0.5rem 1.2rem;
-      border-radius: var(--radius-md);
-      font-size: 0.875rem;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      transition: all 0.2s ease;
-    }
-
-    .btn-refresh:hover {
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(99, 102, 241, 0.4));
-      color: white;
-      box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
-    }
-
-    .pulse-beacon {
-      display: flex;
+    .status-indicator {
+      display: inline-flex;
       align-items: center;
       gap: 0.4rem;
+      padding: 0.35rem 0.65rem;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
       font-size: 0.75rem;
-      color: var(--color-emerald);
-      background: rgba(16, 185, 129, 0.1);
-      padding: 0.35rem 0.75rem;
-      border-radius: var(--radius-full);
-      border: 1px solid rgba(16, 185, 129, 0.2);
+      font-weight: 500;
+      color: var(--text-muted);
     }
 
-    .beacon-dot {
-      width: 8px;
-      height: 8px;
+    .status-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background: var(--color-emerald);
-      box-shadow: 0 0 8px var(--color-emerald);
-      animation: beacon-pulse 2s infinite;
+      background: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
     }
 
-    @keyframes beacon-pulse {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+    .select-input {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 0.45rem 0.85rem;
+      font-size: 0.825rem;
+      color: var(--text-main);
+      font-weight: 500;
+      outline: none;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+
+    .select-input:focus {
+      border-color: var(--border-focus);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      font-size: 0.825rem;
+      font-weight: 600;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+    }
+
+    .btn-secondary {
+      background: var(--bg-surface);
+      border-color: var(--border-color);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-subtle);
+      border-color: var(--border-color);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: #16a34a;
+      color: #ffffff;
+    }
+
+    .btn-success:hover {
+      background: #15803d;
+    }
+
+    .btn-warning {
+      background: #d97706;
+      color: #ffffff;
+    }
+
+    .btn-warning:hover {
+      background: #b45309;
     }
 
     /* Main Container */
     main {
-      flex: 1;
-      padding: 2rem;
-      max-width: 1600px;
-      margin: 0 auto;
+      max-width: 1360px;
       width: 100%;
+      margin: 0 auto;
+      padding: 1.75rem 2rem 3rem 2rem;
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.5rem;
     }
 
-    /* KPI Summary Cards */
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 1.25rem;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
+    /* Command Center Box */
+    .command-card {
+      background: var(--bg-surface);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius);
       padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .command-header {
       display: flex;
-      flex-direction: column;
       justify-content: space-between;
-      backdrop-filter: blur(10px);
-      transition: all 0.25s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .kpi-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--accent-bar, var(--border-color));
-      opacity: 0.8;
-    }
-
-    .kpi-card:hover {
-      transform: translateY(-2px);
-      border-color: rgba(255, 255, 255, 0.15);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-    }
-
-    .kpi-label {
-      font-size: 0.8rem;
-      color: var(--text-secondary);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      display: flex;
       align-items: center;
-      justify-content: space-between;
+      margin-bottom: 0.85rem;
     }
 
-    .kpi-value {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2.2rem;
+    .command-title {
+      font-size: 0.925rem;
       font-weight: 700;
-      margin: 0.5rem 0;
-      color: var(--text-primary);
-    }
-
-    .kpi-subtext {
-      font-size: 0.775rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-    }
-
-    /* Progress & Execution Bar */
-    .progress-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .section-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.15rem;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 0.6rem;
-    }
-
-    .progress-bar-container {
-      background: rgba(15, 23, 42, 0.8);
-      height: 12px;
-      border-radius: var(--radius-full);
-      overflow: hidden;
-      margin-bottom: 1rem;
-      border: 1px solid var(--border-color);
-    }
-
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--color-cyan), var(--color-emerald));
-      border-radius: var(--radius-full);
-      width: 0%;
-      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .task-status-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.75rem;
-    }
-
-    .status-chip {
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid var(--border-color);
-      padding: 0.4rem 0.85rem;
-      border-radius: var(--radius-md);
-      font-size: 0.8rem;
+      color: var(--text-main);
       display: flex;
       align-items: center;
       gap: 0.5rem;
     }
 
-    .chip-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-weight: 600;
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
+    .input-bar {
+      display: flex;
+      gap: 0.6rem;
+      margin-bottom: 0.85rem;
     }
 
-    /* Tables Grid */
-    .tables-grid {
+    .command-input {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      color: var(--text-main);
+      font-family: inherit;
+      outline: none;
+      transition: all 0.15s ease;
+    }
+
+    .command-input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    .command-input::placeholder {
+      color: var(--text-light);
+    }
+
+    .chips-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .chip-heading {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-right: 0.25rem;
+    }
+
+    .chip {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.775rem;
+      font-weight: 500;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .chip:hover {
+      background: var(--bg-muted);
+      border-color: #cbd5e1;
+    }
+
+    .command-status {
+      margin-top: 0.85rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: var(--radius);
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      display: none;
+    }
+
+    .command-status.active {
+      display: block;
+    }
+
+    .command-status.info {
+      background: var(--badge-blue-bg);
+      color: var(--badge-blue-text);
+      border: 1px solid #bae6fd;
+    }
+
+    .command-status.success {
+      background: var(--badge-green-bg);
+      color: var(--badge-green-text);
+      border: 1px solid #bbf7d0;
+    }
+
+    .command-status.error {
+      background: var(--badge-red-bg);
+      color: var(--badge-red-text);
+      border: 1px solid #fecaca;
+    }
+
+    /* KPI Metrics Cards */
+    .kpi-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5rem;
-    }
-
-    @media (max-width: 1200px) {
-      .tables-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .table-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      backdrop-filter: blur(10px);
-    }
-
-    .table-container {
-      overflow-x: auto;
-      max-height: 480px;
-      overflow-y: auto;
-      margin-top: 0.75rem;
-      border-radius: var(--radius-sm);
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-      text-align: left;
-    }
-
-    th {
-      background: rgba(15, 23, 42, 0.95);
-      color: var(--text-secondary);
-      font-weight: 600;
-      text-transform: uppercase;
-      font-size: 0.725rem;
-      letter-spacing: 0.06em;
-      padding: 0.75rem 1rem;
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      border-bottom: 1px solid var(--border-color);
-    }
-
-    td {
-      padding: 0.75rem 1rem;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--text-primary);
-    }
-
-    tr:hover td {
-      background: rgba(51, 65, 85, 0.3);
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.2rem 0.55rem;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--color-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--color-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-danger  { background: rgba(244, 63, 94, 0.15);  color: var(--color-rose);  border: 1px solid rgba(244, 63, 94, 0.3); }
-    .badge-info    { background: rgba(6, 182, 212, 0.15);  color: var(--color-cyan);  border: 1px solid rgba(6, 182, 212, 0.3); }
-    .badge-neutral { background: rgba(148, 163, 184, 0.15);color: var(--text-secondary); border: 1px solid rgba(148, 163, 184, 0.3); }
-
-    /* Error Alert Log Section */
-    .error-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-lg);
-      padding: 1.5rem;
-      backdrop-filter: blur(10px);
-    }
-
-    .error-item {
-      background: rgba(15, 23, 42, 0.7);
-      border: 1px solid rgba(244, 63, 94, 0.2);
-      border-left: 4px solid var(--color-rose);
-      border-radius: var(--radius-md);
-      padding: 1rem 1.25rem;
-      margin-bottom: 0.75rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 1rem;
-      transition: all 0.2s ease;
     }
 
-    .error-item:hover {
-      background: rgba(15, 23, 42, 0.9);
-      border-color: rgba(244, 63, 94, 0.4);
-    }
-
-    .error-item.non-human {
-      border-left-color: var(--color-amber);
-      border-color: rgba(245, 158, 11, 0.2);
-    }
-
-    .error-info {
+    .kpi-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.25rem;
+      box-shadow: var(--shadow-sm);
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
     }
 
-    .error-meta {
+    .kpi-card-header {
       display: flex;
+      justify-content: space-between;
       align-items: center;
-      gap: 0.6rem;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
     }
 
-    .error-msg {
+    .kpi-label {
+      font-size: 0.775rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .kpi-number {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+      line-height: 1.2;
+      font-feature-settings: "tnum";
+    }
+
+    .kpi-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Progress & Execution Bar */
+    .progress-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+
+    .progress-title {
       font-size: 0.875rem;
-      color: #f1f5f9;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .progress-percentage {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--accent-blue);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--bg-subtle);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent-blue);
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    .task-stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+      padding-top: 0.6rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .task-stat-item {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.8rem;
+    }
+
+    .task-stat-label {
+      color: var(--text-muted);
+    }
+
+    .task-stat-val {
+      font-weight: 700;
+      color: var(--text-main);
       font-family: 'JetBrains Mono', monospace;
     }
 
-    .btn-resolve {
-      background: rgba(16, 185, 129, 0.15);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      color: var(--color-emerald);
-      padding: 0.4rem 0.85rem;
-      border-radius: var(--radius-sm);
+    /* 2-Column Split Layout */
+    .grid-two-col {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-two-col {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Tables & Card Containers */
+    .data-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .data-card-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-surface);
+    }
+
+    .data-card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .table-responsive {
+      width: 100%;
+      overflow-x: auto;
+      max-height: 400px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.825rem;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-subtle);
+      color: var(--text-muted);
+      font-weight: 600;
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      color: var(--text-main);
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.725rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge-success { background: var(--badge-green-bg); color: var(--badge-green-text); }
+    .badge-warning { background: var(--badge-amber-bg); color: var(--badge-amber-text); }
+    .badge-danger  { background: var(--badge-red-bg); color: var(--badge-red-text); }
+    .badge-info    { background: var(--badge-blue-bg); color: var(--badge-blue-text); }
+    .badge-neutral { background: var(--badge-gray-bg); color: var(--badge-gray-text); }
+
+    /* Documents Feed Styles */
+    .btn-link-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.65rem;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+    .btn-link-action:hover {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+    .filter-tabs {
+      display: flex;
+      gap: 0.4rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 0.3rem 0.7rem;
       font-size: 0.775rem;
       font-weight: 600;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-muted);
       cursor: pointer;
-      white-space: nowrap;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
+    }
+    .tab-btn:hover {
+      background: var(--bg-subtle);
+      color: var(--text-main);
+    }
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    .doc-search-input {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      outline: none;
+      min-width: 220px;
+      background: var(--bg-surface);
+      color: var(--text-main);
+    }
+    .doc-search-input:focus {
+      border-color: var(--border-focus);
+    }
+    .doc-title-cell {
+      max-width: 320px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .doc-subtext {
+      font-size: 0.725rem;
+      color: var(--text-muted);
+      display: block;
+      margin-top: 0.15rem;
     }
 
-    .btn-resolve:hover {
-      background: rgba(16, 185, 129, 0.3);
-      color: white;
+    /* Errors Section */
+    .error-item {
+      padding: 0.9rem 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
     }
 
-    /* Empty State */
+    .error-item:last-child {
+      border-bottom: none;
+    }
+
+    .error-item:hover {
+      background: #fffbfa;
+    }
+
+    .error-left {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .error-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .error-msg {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: #991b1b;
+    }
+
     .empty-state {
       padding: 2.5rem 1rem;
       text-align: center;
       color: var(--text-muted);
-      font-size: 0.875rem;
+      font-size: 0.85rem;
     }
 
     /* Footer */
     footer {
+      background: var(--bg-surface);
       border-top: 1px solid var(--border-color);
       padding: 1rem 2rem;
       font-size: 0.775rem;
@@ -488,27 +673,36 @@
 </head>
 <body>
 
-  <!-- Top Header -->
+  <!-- Top Header Navigation -->
   <header>
-    <div class="brand-group">
-      <div class="brand-logo">N</div>
+    <div class="brand-section">
+      <div class="brand-icon">N</div>
       <div>
-        <h1 class="brand-title">NEXA INTELLIGENCE</h1>
-        <div class="brand-subtitle">Management Operations & Harvesting Console</div>
+        <div class="brand-title">Nexa Intelligence</div>
+        <div class="brand-tagline">Management Operations & Harvesting Console</div>
       </div>
     </div>
 
-    <div class="nav-controls">
-      <div class="pulse-beacon" id="connection-status">
-        <span class="beacon-dot"></span>
-        <span id="beacon-text">LIVE (Auto-poll 30s)</span>
+    <div class="nav-actions">
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span id="beacon-text">Connected</span>
       </div>
 
-      <select class="scope-select" id="job-selector" onchange="fetchDashboardData()">
-        <option value="">🌐 All Jobs Scope</option>
+      <select class="select-input" id="job-selector" onchange="fetchDashboardData()">
+        <option value="">All Jobs Scope</option>
       </select>
 
-      <button class="btn-refresh" id="btn-manual-refresh" onclick="fetchDashboardData()">
+      <a class="btn btn-success" id="btn-export-xlsx" href="/export?format=xlsx" download>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/>
+          <line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export XLSX
+      </a>
+
+      <button class="btn btn-secondary" onclick="fetchDashboardData()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
         </svg>
@@ -517,147 +711,201 @@
     </div>
   </header>
 
-  <!-- Main Content -->
+  <!-- Main Content Body -->
   <main>
 
-    <!-- KPI Summary Row -->
+    <!-- AI Agent Command Center -->
+    <section class="command-card">
+      <div class="command-header">
+        <div class="command-title">
+          <span>Autonomous AI Agent Dispatcher</span>
+          <span class="badge badge-info">Ollama Local AI</span>
+        </div>
+        <button class="btn btn-warning" id="btn-pause-job" onclick="pauseCurrentJob()" style="display: none; padding: 0.3rem 0.65rem; font-size: 0.775rem;">
+          Pause Active Job
+        </button>
+      </div>
+
+      <div class="input-bar">
+        <input 
+          type="text" 
+          id="agent-command-input" 
+          class="command-input" 
+          placeholder="Type harvesting instruction in plain English (e.g. Find transcripts for Canada on slideshare)..." 
+          onkeydown="if(event.key === 'Enter') dispatchAgentCommand()"
+        />
+        <button class="btn btn-primary" id="btn-dispatch-agent" onclick="dispatchAgentCommand()">
+          <span id="btn-dispatch-text">Run Agent</span>
+        </button>
+      </div>
+
+      <div class="chips-row">
+        <span class="chip-heading">Quick Presets:</span>
+        <button class="chip" onclick="setAndDispatch('Find university transcripts for Canada on slideshare')">Canada (SlideShare)</button>
+        <button class="chip" onclick="setAndDispatch('Collect academic transcripts from Germany and United Kingdom')">UK & Germany</button>
+        <button class="chip" onclick="setAndDispatch('Find degree transcripts for Australia on Zenodo')">Australia (Zenodo)</button>
+        <button class="chip" onclick="setAndDispatch('Collect academic transcripts from all accepted countries across slideshare, scribd, archive_org, zenodo_core, and studocu')">All 49 Countries Scale Run</button>
+      </div>
+
+      <div id="console-status-box" class="command-status info">
+        <span id="console-status-msg"></span>
+      </div>
+    </section>
+
+    <!-- KPI Summary Cards -->
     <section class="kpi-grid">
-      <!-- 1. Total Found -->
-      <div class="kpi-card" style="--accent-bar: var(--color-cyan);">
-        <div class="kpi-label">
-          <span>Total Records Found</span>
-          <span class="badge badge-info">Raw Harvest</span>
+      <!-- Total Records -->
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Total Records</span>
+          <span class="badge badge-neutral">Raw Ingestion</span>
         </div>
-        <div class="kpi-value" id="kpi-total">0</div>
-        <div class="kpi-subtext">
-          <span id="kpi-unique">0</span> unique / <span id="kpi-duplicates">0</span> duplicate
-        </div>
+        <div class="kpi-number" id="kpi-total">0</div>
+        <div class="kpi-desc"><span id="kpi-unique">0</span> unique / <span id="kpi-duplicates">0</span> duplicate</div>
       </div>
 
-      <!-- 2. Two Plus Years -->
-      <div class="kpi-card" style="--accent-bar: var(--color-emerald);">
-        <div class="kpi-label">
-          <span>2+ Completed Years</span>
-          <span class="badge badge-success">Target Dataset</span>
+      <!-- 2+ Years Target -->
+      <div class="kpi-card" style="border-left: 3px solid #16a34a;">
+        <div class="kpi-card-header">
+          <span class="kpi-label">2+ Completed Years</span>
+          <span class="badge badge-success">Target</span>
         </div>
-        <div class="kpi-value" style="color: var(--color-emerald);" id="kpi-two-plus">0</div>
-        <div class="kpi-subtext">
-          Defensible $\ge 2$ academic years
-        </div>
+        <div class="kpi-number" style="color: #16a34a;" id="kpi-two-plus">0</div>
+        <div class="kpi-desc">&ge; 2 defensible academic years</div>
       </div>
 
-      <!-- 3. Under 2 Years -->
-      <div class="kpi-card" style="--accent-bar: var(--color-purple);">
-        <div class="kpi-label">
-          <span>&lt; 2 Years Duration</span>
-          <span class="badge badge-neutral">Secondary</span>
+      <!-- Less Than 2 Years -->
+      <div class="kpi-card" style="border-left: 3px solid #0284c7;">
+        <div class="kpi-card-header">
+          <span class="kpi-label">&lt; 2 Years Duration</span>
+          <span class="badge badge-info">Short-term</span>
         </div>
-        <div class="kpi-value" style="color: var(--color-purple);" id="kpi-less-two">0</div>
-        <div class="kpi-subtext">
-          Defensible &lt; 2 years records
-        </div>
+        <div class="kpi-number" style="color: #0284c7;" id="kpi-less-two">0</div>
+        <div class="kpi-desc">Under 2 years duration</div>
       </div>
 
-      <!-- 4. Needs Review -->
-      <div class="kpi-card" style="--accent-bar: var(--color-amber);">
-        <div class="kpi-label">
-          <span>Needs Human Review</span>
+      <!-- Needs Human Review -->
+      <div class="kpi-card" style="border-left: 3px solid #d97706;">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Needs Review</span>
           <span class="badge badge-warning">Ambiguous</span>
         </div>
-        <div class="kpi-value" style="color: var(--color-amber);" id="kpi-needs-review">0</div>
-        <div class="kpi-subtext">
-          Missing / conflicting duration signals
-        </div>
+        <div class="kpi-number" style="color: #d97706;" id="kpi-needs-review">0</div>
+        <div class="kpi-desc">Conflicting or weak duration signals</div>
       </div>
 
-      <!-- 5. Irrelevant -->
-      <div class="kpi-card" style="--accent-bar: var(--color-rose);">
-        <div class="kpi-label">
-          <span>Irrelevant Filtered</span>
+      <!-- Irrelevant Filtered -->
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Irrelevant Filtered</span>
           <span class="badge badge-danger">Excluded</span>
         </div>
-        <div class="kpi-value" style="color: var(--color-rose);" id="kpi-irrelevant">0</div>
-        <div class="kpi-subtext">
-          Filtered non-academic slide content
-        </div>
+        <div class="kpi-number" style="color: #dc2626;" id="kpi-irrelevant">0</div>
+        <div class="kpi-desc">Filtered non-transcript content</div>
       </div>
 
-      <!-- 6. Pending Classification -->
-      <div class="kpi-card" style="--accent-bar: var(--color-sky);">
-        <div class="kpi-label">
-          <span>Pending Pipeline</span>
+      <!-- In Flight -->
+      <div class="kpi-card">
+        <div class="kpi-card-header">
+          <span class="kpi-label">Pending Pipeline</span>
           <span class="badge badge-neutral">In-Flight</span>
         </div>
-        <div class="kpi-value" style="color: var(--color-sky);" id="kpi-pending">0</div>
-        <div class="kpi-subtext">
-          Awaiting evidence extraction/rules
-        </div>
+        <div class="kpi-number" style="color: #475569;" id="kpi-pending">0</div>
+        <div class="kpi-desc">Awaiting evidence / classification</div>
       </div>
     </section>
 
-    <!-- Progress & Execution Section -->
-    <section class="progress-section">
-      <div class="section-header">
-        <div class="section-title">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-          </svg>
-          Search Tasks Execution Progress
-        </div>
-        <div style="font-size: 0.9rem; font-weight: 700; color: var(--color-emerald);" id="progress-percentage-text">
-          0.0% Complete
-        </div>
+    <!-- Execution Progress Card -->
+    <section class="progress-card">
+      <div class="progress-header">
+        <div class="progress-title">Search & Extraction Pipeline Progress</div>
+        <div class="progress-percentage" id="progress-percentage-text">0% Complete</div>
       </div>
-
-      <div class="progress-bar-container">
-        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progress-bar-fill"></div>
       </div>
-
-      <div class="task-status-chips">
-        <div class="status-chip">
-          <span>Total Tasks:</span>
-          <span class="chip-badge badge-neutral" id="task-total">0</span>
+      <div class="task-stats-row">
+        <div class="task-stat-item">
+          <span class="task-stat-label">Total Tasks:</span>
+          <span class="task-stat-val" id="task-total">0</span>
         </div>
-        <div class="status-chip">
-          <span>Completed:</span>
-          <span class="chip-badge badge-success" id="task-completed">0</span>
+        <div class="task-stat-item">
+          <span class="task-stat-label">Completed:</span>
+          <span class="task-stat-val" style="color: #16a34a;" id="task-completed">0</span>
         </div>
-        <div class="status-chip">
-          <span>Running:</span>
-          <span class="chip-badge badge-info" id="task-running">0</span>
+        <div class="task-stat-item">
+          <span class="task-stat-label">Running:</span>
+          <span class="task-stat-val" style="color: #2563eb;" id="task-running">0</span>
         </div>
-        <div class="status-chip">
-          <span>Queued:</span>
-          <span class="chip-badge badge-neutral" id="task-queued">0</span>
+        <div class="task-stat-item">
+          <span class="task-stat-label">Queued:</span>
+          <span class="task-stat-val" id="task-queued">0</span>
         </div>
-        <div class="status-chip">
-          <span>Blocked:</span>
-          <span class="chip-badge badge-warning" id="task-blocked">0</span>
+        <div class="task-stat-item">
+          <span class="task-stat-label">Blocked/Rate-limited:</span>
+          <span class="task-stat-val" style="color: #d97706;" id="task-blocked">0</span>
         </div>
-        <div class="status-chip">
-          <span>Failed:</span>
-          <span class="chip-badge badge-danger" id="task-failed">0</span>
+        <div class="task-stat-item">
+          <span class="task-stat-label">Failed:</span>
+          <span class="task-stat-val" style="color: #dc2626;" id="task-failed">0</span>
         </div>
-      </div>
     </section>
 
-    <!-- Breakdown Tables Grid -->
-    <section class="tables-grid">
-      <!-- Country Breakdown Table -->
-      <div class="table-card">
-        <div class="section-header">
-          <div class="section-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="2" y1="12" x2="22" y2="12"></line>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-            </svg>
-            Harvest Breakdown by Country
+    <!-- Discovered Academic Documents Live Feed Table -->
+    <section class="data-card">
+      <div class="data-card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div class="data-card-title">
+          <span>📄 Live Discovered Academic Documents</span>
+          <span class="badge badge-info" id="doc-count-badge">0 Documents</span>
+        </div>
+        <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+          <div class="filter-tabs">
+            <button class="tab-btn active" onclick="setDocFilter('ALL', this)">All</button>
+            <button class="tab-btn" onclick="setDocFilter('TWO_PLUS_YEARS', this)">2+ Years</button>
+            <button class="tab-btn" onclick="setDocFilter('LESS_THAN_TWO_YEARS', this)">&lt;2 Years</button>
+            <button class="tab-btn" onclick="setDocFilter('NEEDS_REVIEW', this)">Needs Review</button>
+            <button class="tab-btn" onclick="setDocFilter('PENDING', this)">Pending</button>
           </div>
-          <span class="badge badge-info" id="country-count-badge">0 Countries</span>
+          <input 
+            type="text" 
+            id="doc-search-box" 
+            class="doc-search-input" 
+            placeholder="Search documents by title, university..." 
+            oninput="filterDocsLocal()"
+          />
         </div>
+      </div>
+      <div class="table-responsive" style="max-height: 480px;">
+        <table>
+          <thead>
+            <tr>
+              <th style="min-width: 280px;">Document Title & Institution</th>
+              <th>Source / Original Page</th>
+              <th>Country</th>
+              <th>Repository</th>
+              <th>Classification</th>
+              <th>Discovered</th>
+            </tr>
+          </thead>
+          <tbody id="document-table-body">
+            <tr><td colspan="6" class="empty-state">Loading harvested academic documents...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
-        <div class="table-container">
+    <!-- 2-Column Breakdown Grid -->
+    <section class="grid-two-col">
+
+      <!-- Country Breakdown Table -->
+      <div class="data-card">
+        <div class="data-card-header">
+          <div class="data-card-title">
+            <span>Jurisdiction Breakdown</span>
+            <span class="badge badge-neutral" id="country-count-badge">0 Countries</span>
+          </div>
+        </div>
+        <div class="table-responsive">
           <table>
             <thead>
               <tr>
@@ -671,26 +919,21 @@
               </tr>
             </thead>
             <tbody id="country-table-body">
-              <tr><td colspan="7" class="empty-state">No country data loaded yet.</td></tr>
+              <tr><td colspan="7" class="empty-state">Loading jurisdiction metrics...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
       <!-- Institution Breakdown Table -->
-      <div class="table-card">
-        <div class="section-header">
-          <div class="section-title">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
-            </svg>
-            Top Discovered Institutions
+      <div class="data-card">
+        <div class="data-card-header">
+          <div class="data-card-title">
+            <span>Top Academic Institutions</span>
+            <span class="badge badge-neutral" id="institution-count-badge">0 Institutions</span>
           </div>
-          <span class="badge badge-info" id="institution-count-badge">0 Institutions</span>
         </div>
-
-        <div class="table-container">
+        <div class="table-responsive">
           <table>
             <thead>
               <tr>
@@ -703,57 +946,55 @@
               </tr>
             </thead>
             <tbody id="institution-table-body">
-              <tr><td colspan="6" class="empty-state">No institution data loaded yet.</td></tr>
+              <tr><td colspan="6" class="empty-state">Loading institution records...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
+
     </section>
 
-    <!-- Error Monitoring & Human Alert Panel -->
-    <section class="error-section">
-      <div class="section-header">
-        <div class="section-title" style="color: var(--color-rose);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
-            <line x1="12" y1="9" x2="12" y2="13"></line>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          Unresolved System Errors & Human Roadblocks
+    <!-- Operational Error Center -->
+    <section class="data-card">
+      <div class="data-card-header">
+        <div class="data-card-title">
+          <span>Operational Error & Human Intervention Center</span>
+          <span class="badge badge-danger" id="error-count-badge">0 Unresolved</span>
         </div>
-        <span class="badge badge-danger" id="error-count-badge">0 Unresolved</span>
       </div>
-
       <div id="error-list-container">
-        <div class="empty-state">✅ All operations running cleanly. No unresolved errors requiring attention.</div>
+        <div class="empty-state">All pipeline tasks running cleanly. No unresolved errors requiring attention.</div>
       </div>
     </section>
 
   </main>
 
-  <!-- Footer -->
+  <!-- Clean Footer -->
   <footer>
-    <div>Nexa Consultancy — AI Academic Record Ingestion Platform</div>
-    <div>Auto-refresh interval: 30 seconds &bull; API endpoint: <code>/dashboard</code></div>
+    <div>Nexa Consultancy &bull; Automated Academic Record Intelligence Platform</div>
+    <div>Auto-poll interval: 30s &bull; Endpoints: <code>/dashboard/*</code></div>
   </footer>
 
   <script>
     const API_BASE = window.location.origin;
     let pollSecondsRemaining = 30;
-    let pollIntervalTimer = null;
+    let currentActiveJobId = null;
+
+    let allFetchedDocuments = [];
+    let currentDocFilter = 'ALL';
 
     async function fetchDashboardData() {
       const jobId = document.getElementById('job-selector').value;
       const jobParam = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
 
       try {
-        // Fetch all 5 endpoints in parallel
-        const [summaryRes, countriesRes, institutionsRes, progressRes, errorsRes] = await Promise.all([
+        const [summaryRes, countriesRes, institutionsRes, progressRes, errorsRes, docsRes] = await Promise.all([
           fetch(`${API_BASE}/dashboard/summary${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/by-country${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/by-institution${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/progress${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/errors${jobParam}`).then(r => r.json()),
+          fetch(`${API_BASE}/dashboard/documents${jobParam}`).then(r => r.json()),
         ]);
 
         renderSummary(summaryRes.data || {});
@@ -762,19 +1003,103 @@
         renderProgress(progressRes.data || {});
         renderErrors(errorsRes.data || []);
         
-        // Populate Job selector dropdown if empty
+        allFetchedDocuments = docsRes.data || [];
+        renderDocuments(allFetchedDocuments);
+
         if (progressRes.data && progressRes.data.jobs) {
           populateJobDropdown(progressRes.data.jobs, jobId);
         }
 
-        document.getElementById('beacon-text').textContent = `LIVE (Updated ${new Date().toLocaleTimeString()})`;
+        document.getElementById('beacon-text').textContent = `Live (${new Date().toLocaleTimeString()})`;
       } catch (err) {
         console.error('Failed to fetch dashboard data:', err);
-        document.getElementById('beacon-text').textContent = 'OFFLINE / RECONNECTING';
+        document.getElementById('beacon-text').textContent = 'Reconnecting...';
       }
 
-      // Reset timer countdown
       pollSecondsRemaining = 30;
+    }
+
+    function renderDocuments(docs) {
+      const tbody = document.getElementById('document-table-body');
+      const badge = document.getElementById('doc-count-badge');
+      
+      // Apply classification filter
+      let filtered = docs;
+      if (currentDocFilter !== 'ALL') {
+        if (currentDocFilter === 'PENDING') {
+          filtered = docs.filter(d => !d.classification || d.classification === 'PENDING');
+        } else {
+          filtered = docs.filter(d => d.classification === currentDocFilter);
+        }
+      }
+
+      // Apply search text
+      const searchBox = document.getElementById('doc-search-box');
+      const searchTerm = searchBox ? searchBox.value.trim().toLowerCase() : '';
+      if (searchTerm) {
+        filtered = filtered.filter(d => 
+          (d.title && d.title.toLowerCase().includes(searchTerm)) ||
+          (d.institution && d.institution.toLowerCase().includes(searchTerm)) ||
+          (d.country_name && d.country_name.toLowerCase().includes(searchTerm)) ||
+          (d.source_name && d.source_name.toLowerCase().includes(searchTerm))
+        );
+      }
+
+      badge.textContent = `${filtered.length} Documents`;
+
+      if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No academic documents match the current filter.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(d => {
+        let classBadge = '<span class="badge badge-neutral">PENDING</span>';
+        if (d.classification === 'TWO_PLUS_YEARS') {
+          classBadge = `<span class="badge badge-success">2+ YEARS (${d.completed_years || 2}+ yrs)</span>`;
+        } else if (d.classification === 'LESS_THAN_TWO_YEARS') {
+          classBadge = `<span class="badge badge-info">&lt; 2 YEARS (${d.completed_years || 1} yr)</span>`;
+        } else if (d.classification === 'NEEDS_REVIEW') {
+          classBadge = '<span class="badge badge-warning">NEEDS REVIEW</span>';
+        }
+
+        const dateStr = d.created_at ? new Date(d.created_at).toLocaleDateString() : 'N/A';
+        const docTitle = d.title || 'Academic Transcript / Record';
+        const institutionName = d.institution || 'Unknown Institution';
+
+        return `
+          <tr>
+            <td class="doc-title-cell">
+              <strong>${escapeHtml(docTitle)}</strong>
+              <span class="doc-subtext">🏫 ${escapeHtml(institutionName)}</span>
+            </td>
+            <td>
+              <a href="${escapeHtml(d.canonical_url)}" target="_blank" rel="noopener noreferrer" class="btn-link-action" title="Open original document on ${escapeHtml(d.source_name)}">
+                <span>View Source Page</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                  <polyline points="15 3 21 3 21 9"/>
+                  <line x1="10" y1="14" x2="21" y2="3"/>
+                </svg>
+              </a>
+            </td>
+            <td><span class="badge badge-neutral">${escapeHtml(d.country_name)}</span></td>
+            <td><span class="badge badge-gray-bg" style="font-family: 'JetBrains Mono', monospace; font-size: 0.725rem;">${escapeHtml(d.source_name)}</span></td>
+            <td>${classBadge}</td>
+            <td style="color: var(--text-muted); font-size: 0.75rem;">${dateStr}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setDocFilter(classification, btnEl) {
+      currentDocFilter = classification;
+      document.querySelectorAll('.filter-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderDocuments(allFetchedDocuments);
+    }
+
+    function filterDocsLocal() {
+      renderDocuments(allFetchedDocuments);
     }
 
     function renderSummary(s) {
@@ -817,7 +1142,7 @@
           <td><span class="badge badge-success">${c.two_plus_years}</span></td>
           <td><span class="badge badge-info">${c.less_than_two_years}</span></td>
           <td><span class="badge badge-warning">${c.needs_review}</span></td>
-          <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.775rem;">${c.completed_searches} / ${c.total_searches}</span></td>
+          <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.775rem;">${c.completed_searches} / ${c.total_searches}</td>
         </tr>
       `).join('');
     }
@@ -848,25 +1173,25 @@
       document.getElementById('error-count-badge').textContent = `${list.length} Unresolved`;
 
       if (!list || list.length === 0) {
-        container.innerHTML = '<div class="empty-state">✅ All operations running cleanly. No unresolved errors requiring attention.</div>';
+        container.innerHTML = '<div class="empty-state">All operations running cleanly. No unresolved errors requiring attention.</div>';
         return;
       }
 
       container.innerHTML = list.map(e => `
-        <div class="error-item ${e.requires_human_intervention ? '' : 'non-human'}">
-          <div class="error-info">
+        <div class="error-item">
+          <div class="error-left">
             <div class="error-meta">
               <span class="badge ${e.requires_human_intervention ? 'badge-danger' : 'badge-warning'}">
                 ${escapeHtml(e.error_category)}
               </span>
-              ${e.requires_human_intervention ? '<span class="badge badge-danger">🚨 ACTION REQUIRED</span>' : ''}
-              <span>Job: <code>${e.job_id ? e.job_id.substring(0, 8) + '...' : 'N/A'}</code></span>
+              ${e.requires_human_intervention ? '<span class="badge badge-danger">ACTION REQUIRED</span>' : ''}
+              <span>Job: <code>${e.job_id ? e.job_id.substring(0, 8) : 'N/A'}</code></span>
               <span>Retries: ${e.retry_count}</span>
               <span>${new Date(e.occurred_at).toLocaleTimeString()}</span>
             </div>
             <div class="error-msg">${escapeHtml(e.message)}</div>
           </div>
-          <button class="btn-resolve" onclick="resolveError('${e.id}')">Mark Resolved</button>
+          <button class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.775rem;" onclick="resolveError('${e.id}')">Resolve</button>
         </div>
       `).join('');
     }
@@ -880,7 +1205,7 @@
           alert('Failed to resolve error');
         }
       } catch (err) {
-        alert('Network error while resolving error: ' + err.message);
+        alert('Error: ' + err.message);
       }
     }
 
@@ -888,7 +1213,7 @@
       const select = document.getElementById('job-selector');
       const currentVal = select.value;
       
-      const options = ['<option value="">🌐 All Jobs Scope</option>'];
+      const options = ['<option value="">All Jobs Scope</option>'];
       jobs.forEach(j => {
         const selected = j.id === currentJobId ? 'selected' : '';
         options.push(`<option value="${j.id}" ${selected}>Job ${j.id.substring(0, 8)} (${j.status} - ${j.completion_percentage}%)</option>`);
@@ -898,12 +1223,98 @@
       if (currentVal) select.value = currentVal;
     }
 
+    function setAndDispatch(promptText) {
+      document.getElementById('agent-command-input').value = promptText;
+      dispatchAgentCommand();
+    }
+
+    async function dispatchAgentCommand() {
+      const input = document.getElementById('agent-command-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const btn = document.getElementById('btn-dispatch-agent');
+      const btnText = document.getElementById('btn-dispatch-text');
+      const statusBox = document.getElementById('console-status-box');
+      const statusMsg = document.getElementById('console-status-msg');
+
+      btn.disabled = true;
+      btnText.textContent = 'Planning...';
+      statusBox.className = 'command-status info active';
+      statusMsg.innerHTML = `Analyzing natural language command with local AI model...`;
+
+      try {
+        const planRes = await fetch(`${API_BASE}/agent/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+
+        const planData = await planRes.json();
+        if (!planRes.ok) {
+          throw new Error(planData.message || 'Failed to plan command.');
+        }
+
+        const jobId = planData.jobId || planData.job_id;
+        currentActiveJobId = jobId;
+        const totalPlanned = planData.totalPlanned || (planData.planned_tasks ? planData.planned_tasks.createdCount : 0);
+        const countries = planData.countriesPlanned || (planData.planned_tasks ? planData.planned_tasks.countriesPlanned : []);
+
+        statusBox.className = 'command-status success active';
+        statusMsg.innerHTML = `Job Created (${jobId.substring(0, 8)}): Planned ${totalPlanned} search tasks across [${countries.join(', ')}]. Starting Chromium automation engine...`;
+        btnText.textContent = 'Running...';
+
+        fetch(`${API_BASE}/jobs/${jobId}/resume-full`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        }).catch(e => console.log('Job executing in background'));
+
+        document.getElementById('btn-pause-job').style.display = 'inline-block';
+        fetchDashboardData();
+
+        setTimeout(() => {
+          btn.disabled = false;
+          btnText.textContent = 'Run Agent';
+          statusMsg.innerHTML = `Job <code>${jobId.substring(0, 8)}</code> is currently running. Progress is updating live below.`;
+        }, 3000);
+
+      } catch (err) {
+        console.error('Agent dispatch error:', err);
+        statusBox.className = 'command-status error active';
+        statusMsg.innerHTML = `Error: ${escapeHtml(err.message)}`;
+        btn.disabled = false;
+        btnText.textContent = 'Run Agent';
+      }
+    }
+
+    async function pauseCurrentJob() {
+      const jobId = currentActiveJobId || document.getElementById('job-selector').value;
+      if (!jobId) {
+        alert('No active job selected to pause.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/jobs/${jobId}/pause`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Job ${jobId.substring(0, 8)} paused successfully.`);
+          document.getElementById('btn-pause-job').style.display = 'none';
+          fetchDashboardData();
+        } else {
+          alert(`Failed to pause: ${data.message}`);
+        }
+      } catch (e) {
+        alert('Error: ' + e.message);
+      }
+    }
+
     function escapeHtml(str) {
       if (!str) return '';
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Auto-poll timer
     setInterval(() => {
       pollSecondsRemaining--;
       if (pollSecondsRemaining <= 0) {
@@ -913,7 +1324,6 @@
       if (el) el.textContent = Math.max(0, pollSecondsRemaining);
     }, 1000);
 
-    // Initial load
     fetchDashboardData();
   </script>
 </body>
