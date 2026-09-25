@@ -1,23 +1,20 @@
 #!/bin/sh
 set -e
 
-echo "========================================================"
-echo "🚀 Auto-Importing n8n Workflows into Container..."
-echo "========================================================"
-
-# Wait for n8n service database/API to become available
-echo "Waiting for n8n initialization..."
-sleep 5
-
 WORKFLOW_DIR="/workflows"
-if [ -d "$WORKFLOW_DIR" ]; then
-  for wf in "$WORKFLOW_DIR"/*.json; do
-    if [ -f "$wf" ]; then
-      echo "Importing workflow: $(basename "$wf")"
-      n8n import:workflow --input="$wf" || echo "Workflow $(basename "$wf") already exists or imported."
-    fi
-  done
-  echo "✅ All workflows successfully processed!"
-else
-  echo "⚠️ Workflow directory $WORKFLOW_DIR not found, skipping."
+
+if [ -z "$(ls -A $WORKFLOW_DIR/*.json 2>/dev/null)" ]; then
+  echo "No workflow files found in $WORKFLOW_DIR, skipping import."
+  exit 0
 fi
+
+echo "Importing workflows from $WORKFLOW_DIR..."
+for file in "$WORKFLOW_DIR"/*.json; do
+  echo "  -> $(basename "$file")"
+  n8n import:workflow --input="$file"
+done
+
+echo "Activating all imported workflows..."
+n8n update:workflow --all --active=true
+
+echo "Workflow import complete."

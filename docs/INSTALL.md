@@ -55,9 +55,10 @@ docker compose up -d --build
 This builds and launches:
 - `nexa_agent` (Fastify API, Chromium Playwright browser instance, pipeline workers)
 - `nexa_n8n` (Workflow orchestration engine)
+- `nexa_n8n_init` (Automated workflow importer and activator that runs once after n8n is healthy)
 - `nexa_ollama` (Local LLM inference container)
 
-Verify all containers are healthy:
+Verify all containers are running and `nexa_n8n_init` has exited cleanly:
 ```bash
 docker compose ps
 ```
@@ -81,22 +82,22 @@ docker exec -it nexa_agent npm run migrate:up
 
 ---
 
-### Step 7: Access n8n Orchestrator & Create Admin Account
+### Step 7: Access n8n Orchestrator & Create Owner Account
 1. Open your browser to: **`http://localhost:5678`**
-2. On first launch, enter your name, email, and admin password to complete the initial setup.
+2. On first launch, enter your name, email, and password to set up your owner account.
 
 ---
 
-### Step 8: Import and Activate Workflow Automation
-Workflows are located in `n8n/workflows/`:
-1. In the n8n left sidebar, click **Workflows** -> **Add Workflow** (or the `...` menu in the top-right -> **Import from File**).
-2. Import the 5 workflow definitions:
-   - `start-job.json` (Webhook trigger to start and plan a job)
-   - `progress-poll.json` (Scheduled progress polling every 5 minutes)
-   - `resume-watcher.json` (Auto-detects and recovers stale or interrupted jobs)
-   - `error-monitor.json` (Monitors human-intervention errors)
-   - `export.json` (Exports completed job data as XLSX / CSV)
-3. Toggle the **Active** switch in the top right of each workflow to activate automated polling and monitoring.
+### Step 8: Automated Workflow Activation
+> [!NOTE]
+> All 5 workflow automation pipelines (`start-job`, `progress-poll`, `resume-watcher`, `error-monitor`, `export`) are **automatically imported and activated** upon startup by the `n8n-init` container into the shared `n8n_data` volume. No manual JSON import or toggling is required.
+
+You will see all 5 workflows immediately present and active in the n8n UI:
+- `Start Job`: Webhook trigger to create and plan jobs
+- `Progress Poll`: Scheduled heartbeat checking active job progress
+- `Resume Watcher`: Auto-recovers stale or interrupted jobs
+- `Error Monitor`: Flags errors requiring operator attention
+- `Export`: Generates multi-sheet XLSX / CSV exports on demand
 
 ---
 

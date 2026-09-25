@@ -22,10 +22,29 @@ services:
       - GENERIC_TIMEZONE=${GENERIC_TIMEZONE:-UTC}
     volumes:
       - n8n_data:/home/node/.n8n
-      - ../n8n/workflows:/workflows:ro
-      - ./init/import-workflows.sh:/docker-entrypoint-init.d/import-workflows.sh:ro
     ports:
       - "${N8N_PORT:-5678}:5678"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:5678/healthz"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - nexa_network
+
+  n8n-init:
+    image: n8nio/n8n:latest
+    container_name: nexa_n8n_init
+    depends_on:
+      n8n:
+        condition: service_healthy
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ../n8n/workflows:/workflows:ro
+      - ./init/import-workflows.sh:/import-workflows.sh:ro
+    entrypoint: ["sh", "/import-workflows.sh"]
+    restart: "no"
     networks:
       - nexa_network
 
