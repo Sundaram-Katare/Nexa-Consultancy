@@ -168,7 +168,7 @@ async function runOrchestrationTests() {
     throw new Error(`❌ Job ${jobData.id} should appear in BLOCKED list`);
   }
 
-  // Resume full execution
+  // Test resume-full endpoint response structure
   const resumeRes = await server.inject({
     method: "POST",
     url: `/jobs/${jobData.id}/resume-full`,
@@ -179,7 +179,7 @@ async function runOrchestrationTests() {
   }
 
   const resumeData = JSON.parse(resumeRes.body);
-  console.log(`✅ POST /jobs/:id/resume-full succeeded: FinalStatus=${resumeData.finalStatus}, StagesRun=${JSON.stringify(resumeData.stages)}`);
+  console.log(`✅ POST /jobs/:id/resume-full succeeded: JobId=${resumeData.job_id}, FinalStatus=${resumeData.finalStatus}`);
 
   // Test 2.4: Workflow 4 API Contract: GET /errors?resolved=false&requiresHumanIntervention=true -> POST /errors/:id/resolve
   console.log("\n[TEST 2.4] Workflow 4 API Contract: Error Monitoring & Human Alerting");

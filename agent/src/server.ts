@@ -7,6 +7,10 @@ import { errorsRoutes } from "./routes/errors";
 import { debugRoutes } from "./routes/debug";
 import { checkDatabaseHealth } from "./db/pool";
 
+import path from "path";
+import fastifyStatic from "@fastify/static";
+import { dashboardRoutes } from "./routes/dashboard";
+
 export function buildServer(): FastifyInstance {
   const server = Fastify({
     logger: {
@@ -17,6 +21,14 @@ export function buildServer(): FastifyInstance {
   // Enable CORS
   server.register(cors, {
     origin: true,
+  });
+
+  // Register Static Dashboard UI
+  const dashboardDir = path.resolve(__dirname, "../../dashboard");
+  server.register(fastifyStatic, {
+    root: dashboardDir,
+    prefix: "/ui/",
+    decorateReply: false,
   });
 
   // Health Check Endpoint
@@ -36,6 +48,7 @@ export function buildServer(): FastifyInstance {
   server.register(searchTasksRoutes, { prefix: "/search-tasks" });
   server.register(documentsRoutes, { prefix: "/documents" });
   server.register(errorsRoutes, { prefix: "/errors" });
+  server.register(dashboardRoutes, { prefix: "/dashboard" });
   server.register(debugRoutes, { prefix: "/debug" });
 
   return server;

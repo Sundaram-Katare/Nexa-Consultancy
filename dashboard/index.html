@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nexa Intelligence — Academic Transcript Harvesting Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-primary: #090d16;
+      --bg-secondary: #0f172a;
+      --bg-card: rgba(30, 41, 59, 0.7);
+      --bg-card-hover: rgba(51, 65, 85, 0.7);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      
+      --color-emerald: #10b981;
+      --color-cyan: #06b6d4;
+      --color-sky: #38bdf8;
+      --color-amber: #f59e0b;
+      --color-rose: #f43f5e;
+      --color-purple: #a855f7;
+      --color-indigo: #6366f1;
+
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --radius-full: 9999px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(14, 165, 233, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.06) 0%, transparent 40%);
+      background-attachment: fixed;
+    }
+
+    /* Top Navigation Bar */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, #0ea5e9, #6366f1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: white;
+      box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
+    }
+
+    .brand-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--color-sky);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .scope-select {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid var(--border-color);
+      color: var(--text-primary);
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      outline: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .scope-select:hover, .scope-select:focus {
+      border-color: var(--color-sky);
+    }
+
+    .btn-refresh {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2));
+      border: 1px solid var(--border-accent);
+      color: var(--color-sky);
+      padding: 0.5rem 1.2rem;
+      border-radius: var(--radius-md);
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-refresh:hover {
+      background: linear-gradient(135deg, rgba(14, 165, 233, 0.4), rgba(99, 102, 241, 0.4));
+      color: white;
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+    }
+
+    .pulse-beacon {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      color: var(--color-emerald);
+      background: rgba(16, 185, 129, 0.1);
+      padding: 0.35rem 0.75rem;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .beacon-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--color-emerald);
+      box-shadow: 0 0 8px var(--color-emerald);
+      animation: beacon-pulse 2s infinite;
+    }
+
+    @keyframes beacon-pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* KPI Summary Cards */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      backdrop-filter: blur(10px);
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent-bar, var(--border-color));
+      opacity: 0.8;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    }
+
+    .kpi-label {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin: 0.5rem 0;
+      color: var(--text-primary);
+    }
+
+    .kpi-subtext {
+      font-size: 0.775rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    /* Progress & Execution Bar */
+    .progress-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .progress-bar-container {
+      background: rgba(15, 23, 42, 0.8);
+      height: 12px;
+      border-radius: var(--radius-full);
+      overflow: hidden;
+      margin-bottom: 1rem;
+      border: 1px solid var(--border-color);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-cyan), var(--color-emerald));
+      border-radius: var(--radius-full);
+      width: 0%;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .task-status-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .status-chip {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--border-color);
+      padding: 0.4rem 0.85rem;
+      border-radius: var(--radius-md);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .chip-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    /* Tables Grid */
+    .tables-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    @media (max-width: 1200px) {
+      .tables-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .table-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      backdrop-filter: blur(10px);
+    }
+
+    .table-container {
+      overflow-x: auto;
+      max-height: 480px;
+      overflow-y: auto;
+      margin-top: 0.75rem;
+      border-radius: var(--radius-sm);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.95);
+      color: var(--text-secondary);
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.725rem;
+      letter-spacing: 0.06em;
+      padding: 0.75rem 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+    }
+
+    tr:hover td {
+      background: rgba(51, 65, 85, 0.3);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-success { background: rgba(16, 185, 129, 0.15); color: var(--color-emerald); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--color-amber); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-danger  { background: rgba(244, 63, 94, 0.15);  color: var(--color-rose);  border: 1px solid rgba(244, 63, 94, 0.3); }
+    .badge-info    { background: rgba(6, 182, 212, 0.15);  color: var(--color-cyan);  border: 1px solid rgba(6, 182, 212, 0.3); }
+    .badge-neutral { background: rgba(148, 163, 184, 0.15);color: var(--text-secondary); border: 1px solid rgba(148, 163, 184, 0.3); }
+
+    /* Error Alert Log Section */
+    .error-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .error-item {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(244, 63, 94, 0.2);
+      border-left: 4px solid var(--color-rose);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s ease;
+    }
+
+    .error-item:hover {
+      background: rgba(15, 23, 42, 0.9);
+      border-color: rgba(244, 63, 94, 0.4);
+    }
+
+    .error-item.non-human {
+      border-left-color: var(--color-amber);
+      border-color: rgba(245, 158, 11, 0.2);
+    }
+
+    .error-info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .error-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .error-msg {
+      font-size: 0.875rem;
+      color: #f1f5f9;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .btn-resolve {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--color-emerald);
+      padding: 0.4rem 0.85rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.775rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+    }
+
+    .btn-resolve:hover {
+      background: rgba(16, 185, 129, 0.3);
+      color: white;
+    }
+
+    /* Empty State */
+    .empty-state {
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border-color);
+      padding: 1rem 2rem;
+      font-size: 0.775rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header>
+    <div class="brand-group">
+      <div class="brand-logo">N</div>
+      <div>
+        <h1 class="brand-title">NEXA INTELLIGENCE</h1>
+        <div class="brand-subtitle">Management Operations & Harvesting Console</div>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <div class="pulse-beacon" id="connection-status">
+        <span class="beacon-dot"></span>
+        <span id="beacon-text">LIVE (Auto-poll 30s)</span>
+      </div>
+
+      <select class="scope-select" id="job-selector" onchange="fetchDashboardData()">
+        <option value="">🌐 All Jobs Scope</option>
+      </select>
+
+      <button class="btn-refresh" id="btn-manual-refresh" onclick="fetchDashboardData()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+        </svg>
+        Refresh (<span id="poll-countdown">30</span>s)
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+
+    <!-- KPI Summary Row -->
+    <section class="kpi-grid">
+      <!-- 1. Total Found -->
+      <div class="kpi-card" style="--accent-bar: var(--color-cyan);">
+        <div class="kpi-label">
+          <span>Total Records Found</span>
+          <span class="badge badge-info">Raw Harvest</span>
+        </div>
+        <div class="kpi-value" id="kpi-total">0</div>
+        <div class="kpi-subtext">
+          <span id="kpi-unique">0</span> unique / <span id="kpi-duplicates">0</span> duplicate
+        </div>
+      </div>
+
+      <!-- 2. Two Plus Years -->
+      <div class="kpi-card" style="--accent-bar: var(--color-emerald);">
+        <div class="kpi-label">
+          <span>2+ Completed Years</span>
+          <span class="badge badge-success">Target Dataset</span>
+        </div>
+        <div class="kpi-value" style="color: var(--color-emerald);" id="kpi-two-plus">0</div>
+        <div class="kpi-subtext">
+          Defensible $\ge 2$ academic years
+        </div>
+      </div>
+
+      <!-- 3. Under 2 Years -->
+      <div class="kpi-card" style="--accent-bar: var(--color-purple);">
+        <div class="kpi-label">
+          <span>&lt; 2 Years Duration</span>
+          <span class="badge badge-neutral">Secondary</span>
+        </div>
+        <div class="kpi-value" style="color: var(--color-purple);" id="kpi-less-two">0</div>
+        <div class="kpi-subtext">
+          Defensible &lt; 2 years records
+        </div>
+      </div>
+
+      <!-- 4. Needs Review -->
+      <div class="kpi-card" style="--accent-bar: var(--color-amber);">
+        <div class="kpi-label">
+          <span>Needs Human Review</span>
+          <span class="badge badge-warning">Ambiguous</span>
+        </div>
+        <div class="kpi-value" style="color: var(--color-amber);" id="kpi-needs-review">0</div>
+        <div class="kpi-subtext">
+          Missing / conflicting duration signals
+        </div>
+      </div>
+
+      <!-- 5. Irrelevant -->
+      <div class="kpi-card" style="--accent-bar: var(--color-rose);">
+        <div class="kpi-label">
+          <span>Irrelevant Filtered</span>
+          <span class="badge badge-danger">Excluded</span>
+        </div>
+        <div class="kpi-value" style="color: var(--color-rose);" id="kpi-irrelevant">0</div>
+        <div class="kpi-subtext">
+          Filtered non-academic slide content
+        </div>
+      </div>
+
+      <!-- 6. Pending Classification -->
+      <div class="kpi-card" style="--accent-bar: var(--color-sky);">
+        <div class="kpi-label">
+          <span>Pending Pipeline</span>
+          <span class="badge badge-neutral">In-Flight</span>
+        </div>
+        <div class="kpi-value" style="color: var(--color-sky);" id="kpi-pending">0</div>
+        <div class="kpi-subtext">
+          Awaiting evidence extraction/rules
+        </div>
+      </div>
+    </section>
+
+    <!-- Progress & Execution Section -->
+    <section class="progress-section">
+      <div class="section-header">
+        <div class="section-title">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Search Tasks Execution Progress
+        </div>
+        <div style="font-size: 0.9rem; font-weight: 700; color: var(--color-emerald);" id="progress-percentage-text">
+          0.0% Complete
+        </div>
+      </div>
+
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+
+      <div class="task-status-chips">
+        <div class="status-chip">
+          <span>Total Tasks:</span>
+          <span class="chip-badge badge-neutral" id="task-total">0</span>
+        </div>
+        <div class="status-chip">
+          <span>Completed:</span>
+          <span class="chip-badge badge-success" id="task-completed">0</span>
+        </div>
+        <div class="status-chip">
+          <span>Running:</span>
+          <span class="chip-badge badge-info" id="task-running">0</span>
+        </div>
+        <div class="status-chip">
+          <span>Queued:</span>
+          <span class="chip-badge badge-neutral" id="task-queued">0</span>
+        </div>
+        <div class="status-chip">
+          <span>Blocked:</span>
+          <span class="chip-badge badge-warning" id="task-blocked">0</span>
+        </div>
+        <div class="status-chip">
+          <span>Failed:</span>
+          <span class="chip-badge badge-danger" id="task-failed">0</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Breakdown Tables Grid -->
+    <section class="tables-grid">
+      <!-- Country Breakdown Table -->
+      <div class="table-card">
+        <div class="section-header">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            Harvest Breakdown by Country
+          </div>
+          <span class="badge badge-info" id="country-count-badge">0 Countries</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Country</th>
+                <th>Total</th>
+                <th>Unique</th>
+                <th>2+ Yrs</th>
+                <th>&lt;2 Yrs</th>
+                <th>Review</th>
+                <th>Searches</th>
+              </tr>
+            </thead>
+            <tbody id="country-table-body">
+              <tr><td colspan="7" class="empty-state">No country data loaded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Institution Breakdown Table -->
+      <div class="table-card">
+        <div class="section-header">
+          <div class="section-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+            Top Discovered Institutions
+          </div>
+          <span class="badge badge-info" id="institution-count-badge">0 Institutions</span>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Institution</th>
+                <th>Country</th>
+                <th>Total</th>
+                <th>2+ Yrs</th>
+                <th>&lt;2 Yrs</th>
+                <th>Review</th>
+              </tr>
+            </thead>
+            <tbody id="institution-table-body">
+              <tr><td colspan="6" class="empty-state">No institution data loaded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Error Monitoring & Human Alert Panel -->
+    <section class="error-section">
+      <div class="section-header">
+        <div class="section-title" style="color: var(--color-rose);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          Unresolved System Errors & Human Roadblocks
+        </div>
+        <span class="badge badge-danger" id="error-count-badge">0 Unresolved</span>
+      </div>
+
+      <div id="error-list-container">
+        <div class="empty-state">✅ All operations running cleanly. No unresolved errors requiring attention.</div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div>Nexa Consultancy — AI Academic Record Ingestion Platform</div>
+    <div>Auto-refresh interval: 30 seconds &bull; API endpoint: <code>/dashboard</code></div>
+  </footer>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let pollSecondsRemaining = 30;
+    let pollIntervalTimer = null;
+
+    async function fetchDashboardData() {
+      const jobId = document.getElementById('job-selector').value;
+      const jobParam = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
+
+      try {
+        // Fetch all 5 endpoints in parallel
+        const [summaryRes, countriesRes, institutionsRes, progressRes, errorsRes] = await Promise.all([
+          fetch(`${API_BASE}/dashboard/summary${jobParam}`).then(r => r.json()),
+          fetch(`${API_BASE}/dashboard/by-country${jobParam}`).then(r => r.json()),
+          fetch(`${API_BASE}/dashboard/by-institution${jobParam}`).then(r => r.json()),
+          fetch(`${API_BASE}/dashboard/progress${jobParam}`).then(r => r.json()),
+          fetch(`${API_BASE}/dashboard/errors${jobParam}`).then(r => r.json()),
+        ]);
+
+        renderSummary(summaryRes.data || {});
+        renderCountries(countriesRes.data || []);
+        renderInstitutions(institutionsRes.data || []);
+        renderProgress(progressRes.data || {});
+        renderErrors(errorsRes.data || []);
+        
+        // Populate Job selector dropdown if empty
+        if (progressRes.data && progressRes.data.jobs) {
+          populateJobDropdown(progressRes.data.jobs, jobId);
+        }
+
+        document.getElementById('beacon-text').textContent = `LIVE (Updated ${new Date().toLocaleTimeString()})`;
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
+        document.getElementById('beacon-text').textContent = 'OFFLINE / RECONNECTING';
+      }
+
+      // Reset timer countdown
+      pollSecondsRemaining = 30;
+    }
+
+    function renderSummary(s) {
+      document.getElementById('kpi-total').textContent = (s.total_records || 0).toLocaleString();
+      document.getElementById('kpi-unique').textContent = (s.unique_count || 0).toLocaleString();
+      document.getElementById('kpi-duplicates').textContent = (s.duplicate_count || 0).toLocaleString();
+      document.getElementById('kpi-two-plus').textContent = (s.two_plus_years || 0).toLocaleString();
+      document.getElementById('kpi-less-two').textContent = (s.less_than_two_years || 0).toLocaleString();
+      document.getElementById('kpi-needs-review').textContent = (s.needs_review || 0).toLocaleString();
+      document.getElementById('kpi-irrelevant').textContent = (s.irrelevant || 0).toLocaleString();
+      document.getElementById('kpi-pending').textContent = (s.pending_classification || 0).toLocaleString();
+    }
+
+    function renderProgress(p) {
+      const pct = p.completion_percentage || 0;
+      document.getElementById('progress-percentage-text').textContent = `${pct}% Complete`;
+      document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+      document.getElementById('task-total').textContent = p.total_tasks || 0;
+      document.getElementById('task-completed').textContent = p.completed || 0;
+      document.getElementById('task-running').textContent = p.running || 0;
+      document.getElementById('task-queued').textContent = p.queued || 0;
+      document.getElementById('task-blocked').textContent = p.blocked || 0;
+      document.getElementById('task-failed').textContent = p.failed || 0;
+    }
+
+    function renderCountries(list) {
+      const tbody = document.getElementById('country-table-body');
+      document.getElementById('country-count-badge').textContent = `${list.length} Countries`;
+      
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No country records found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(c => `
+        <tr>
+          <td><strong>${escapeHtml(c.country_name)}</strong></td>
+          <td><span class="badge badge-neutral">${c.total_documents}</span></td>
+          <td>${c.unique_documents}</td>
+          <td><span class="badge badge-success">${c.two_plus_years}</span></td>
+          <td><span class="badge badge-info">${c.less_than_two_years}</span></td>
+          <td><span class="badge badge-warning">${c.needs_review}</span></td>
+          <td><span style="font-family: 'JetBrains Mono', monospace; font-size: 0.775rem;">${c.completed_searches} / ${c.total_searches}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderInstitutions(list) {
+      const tbody = document.getElementById('institution-table-body');
+      document.getElementById('institution-count-badge').textContent = `${list.length} Institutions`;
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No institution records found.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = list.map(i => `
+        <tr>
+          <td><strong>${escapeHtml(i.institution)}</strong></td>
+          <td><span class="badge badge-neutral">${escapeHtml(i.country_name)}</span></td>
+          <td><span class="badge badge-info">${i.total_documents}</span></td>
+          <td><span class="badge badge-success">${i.two_plus_years}</span></td>
+          <td><span class="badge badge-neutral">${i.less_than_two_years}</span></td>
+          <td><span class="badge badge-warning">${i.needs_review}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderErrors(list) {
+      const container = document.getElementById('error-list-container');
+      document.getElementById('error-count-badge').textContent = `${list.length} Unresolved`;
+
+      if (!list || list.length === 0) {
+        container.innerHTML = '<div class="empty-state">✅ All operations running cleanly. No unresolved errors requiring attention.</div>';
+        return;
+      }
+
+      container.innerHTML = list.map(e => `
+        <div class="error-item ${e.requires_human_intervention ? '' : 'non-human'}">
+          <div class="error-info">
+            <div class="error-meta">
+              <span class="badge ${e.requires_human_intervention ? 'badge-danger' : 'badge-warning'}">
+                ${escapeHtml(e.error_category)}
+              </span>
+              ${e.requires_human_intervention ? '<span class="badge badge-danger">🚨 ACTION REQUIRED</span>' : ''}
+              <span>Job: <code>${e.job_id ? e.job_id.substring(0, 8) + '...' : 'N/A'}</code></span>
+              <span>Retries: ${e.retry_count}</span>
+              <span>${new Date(e.occurred_at).toLocaleTimeString()}</span>
+            </div>
+            <div class="error-msg">${escapeHtml(e.message)}</div>
+          </div>
+          <button class="btn-resolve" onclick="resolveError('${e.id}')">Mark Resolved</button>
+        </div>
+      `).join('');
+    }
+
+    async function resolveError(errorId) {
+      try {
+        const res = await fetch(`${API_BASE}/errors/${errorId}/resolve`, { method: 'POST' });
+        if (res.ok) {
+          fetchDashboardData();
+        } else {
+          alert('Failed to resolve error');
+        }
+      } catch (err) {
+        alert('Network error while resolving error: ' + err.message);
+      }
+    }
+
+    function populateJobDropdown(jobs, currentJobId) {
+      const select = document.getElementById('job-selector');
+      const currentVal = select.value;
+      
+      const options = ['<option value="">🌐 All Jobs Scope</option>'];
+      jobs.forEach(j => {
+        const selected = j.id === currentJobId ? 'selected' : '';
+        options.push(`<option value="${j.id}" ${selected}>Job ${j.id.substring(0, 8)} (${j.status} - ${j.completion_percentage}%)</option>`);
+      });
+
+      select.innerHTML = options.join('');
+      if (currentVal) select.value = currentVal;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Auto-poll timer
+    setInterval(() => {
+      pollSecondsRemaining--;
+      if (pollSecondsRemaining <= 0) {
+        fetchDashboardData();
+      }
+      const el = document.getElementById('poll-countdown');
+      if (el) el.textContent = Math.max(0, pollSecondsRemaining);
+    }, 1000);
+
+    // Initial load
+    fetchDashboardData();
+  </script>
+</body>
+</html>
