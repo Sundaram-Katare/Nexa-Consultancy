@@ -1,4 +1,4 @@
-import { EvidenceSignal } from "../../evidence/patterns";
+import { EvidenceSignalRow } from "../../evidence/evidenceExtractor";
 
 /**
  * Builds the strict anti-hallucination prompt for 2-Year Duration Classification.
@@ -6,7 +6,7 @@ import { EvidenceSignal } from "../../evidence/patterns";
  */
 export function buildClassificationPrompt(
   title: string,
-  signals: EvidenceSignal[]
+  signals: EvidenceSignalRow[]
 ): { system: string; prompt: string } {
   const system = `You are a forensic academic credential verifier. Your job is to determine whether an academic transcript documents at least 2 completed academic years (e.g. Bachelor, Master, 2+ year Diploma) versus less than 2 years (e.g. 1-year Certificate/Diploma), or whether duration remains ambiguous (NEEDS_REVIEW).
 You must follow strict anti-hallucination rules:
@@ -17,7 +17,7 @@ You must follow strict anti-hallucination rules:
   const signalsFormatted = signals
     .map(
       (s, idx) =>
-        `[Signal ${idx + 1} (${s.signal_type}) - Conf: ${s.confidence}]: "${s.raw_text}" (Extracted Value: ${JSON.stringify(
+        `[Signal ${idx + 1} (${s.signal_type})]: "${s.raw_text}" (Extracted Value: ${JSON.stringify(
           s.extracted_value
         )})`
     )

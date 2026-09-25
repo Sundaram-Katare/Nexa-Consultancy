@@ -102,7 +102,8 @@ export async function runTask(
         hasNextPage: resultPage.hasNextPage,
       });
 
-      // Ingest document candidates with deduplication
+      // Ingest document candidates with deduplication and instant classification
+      let pageNewInserted = 0;
       for (const item of resultPage.results) {
         totalDocumentsFound++;
         const ingestRes = await insertPendingDocument({
@@ -112,10 +113,13 @@ export async function runTask(
           title: item.titleRaw,
           countryId: task.country_id,
           institution: task.institution,
+          snippet: item.snippetRaw,
+          rawMetadata: { snippet: item.snippetRaw },
         });
 
         if (ingestRes.inserted) {
           newDocumentsInserted++;
+          pageNewInserted++;
         } else {
           duplicatesSkipped++;
         }
@@ -131,6 +135,21 @@ export async function runTask(
         "RUNNING",
         "SEARCH"
       );
+
+      // LIVE 20-DOC BATCH CLASSIFIER:
+      // When newly stored documents accumulate, immediately extract & classify them live!
+      if (pageNewInserted > 0 || newDocumentsInserted >= 20) {
+        try {
+          const { jobRunner } = await import("../pipeline/jobRunner");
+          const sourceIdent = task.source_name || String(task.source_id);
+          console.log(
+            `[STREAMING_20] Triggering live 20-doc batch classification for source '${sourceIdent}' (Job ${task.job_id})...`
+          );
+          await jobRunner.drainExtractionAndClassification([sourceIdent], task.job_id, 20);
+        } catch (streamErr: any) {
+          console.error(`[STREAMING_20] Live batch drain error:`, streamErr?.message || streamErr);
+        }
+      }
 
       // Check if site has more pages
       if (!resultPage.hasNextPage) {

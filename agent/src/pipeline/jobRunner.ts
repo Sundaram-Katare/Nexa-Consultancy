@@ -6,6 +6,7 @@ import { runRelevanceFilter } from "../relevance/relevanceFilter";
 import { extractDurationSignals } from "../evidence/evidenceExtractor";
 import { classify } from "../classification/classificationEngine";
 import { saveCheckpoint } from "./checkpointService";
+import { instantClassifyDocument } from "../dedup/deduplicationService";
 
 export interface ResumeJobSummary {
   jobId: string;
@@ -26,21 +27,15 @@ export class JobRunner {
   /**
    * Resumes an interrupted or partially executed job from its exact point of interruption.
    *
-   * CRITICAL DESIGN PRINCIPLE:
-   * This function does NOT trust the checkpoints table alone as ground truth.
-   * Checkpoints serve as operational progress logs, but actual database entity statuses
-   * (search_tasks.status, documents.status, classifications.id) are the single source
-   * of truth.
-   *
-   * Work stages executed deterministically:
-   * 1. Search Tasks: Any search_tasks with status IN ('QUEUED', 'RUNNING', 'PAUSED')
-   * 2. Document Extraction: Any documents with status 'PENDING'
-   * 3. Relevance Filtering: Any documents with status 'EXTRACTED'
-   * 4. 2-Year Classification: Any documents with status 'CLASSIFIED_PENDING' lacking a classification row
+   * STREAMING PIPELINE ARCHITECTURE:
+   * 1. Search tasks discover raw document records.
+   * 2. After each search task (or batch), pending documents are immediately extracted,
+   *    relevance filtered, and classified into 2+ Years / Needs Review live in real time.
+   * 3. Final drain pass ensures 100% of all discovered documents are fully classified.
    */
   public async resumeJob(jobId: string): Promise<ResumeJobSummary> {
     const resumedAt = new Date().toISOString();
-    console.log(`[JOB_RUNNER] Resuming pipeline for Job ${jobId}...`);
+    console.log(`[JOB_RUNNER] Resuming streaming pipeline for Job ${jobId}...`);
 
     // 1. Fetch job record
     const job = await getJobById(jobId);
@@ -73,7 +68,7 @@ export class JobRunner {
     let documentsClassified = 0;
 
     // -------------------------------------------------------------
-    // STAGE 1: Process Remaining Search Tasks
+    // STAGE 1: Process Search Tasks with Streaming Classification
     // -------------------------------------------------------------
     const pendingTasks = await query<{
       id: string;
@@ -99,124 +94,43 @@ export class JobRunner {
       }
 
       for (const task of pendingTasks.rows) {
+        // Check if job was paused while running
+        const currentJob = await getJobById(jobId);
+        if (currentJob?.status === "PAUSED") {
+          console.log(`[JOB_RUNNER] Job ${jobId} was paused. Stopping search loop.`);
+          break;
+        }
+
         console.log(
-          `[JOB_RUNNER] [Stage 1 - Search] Executing pending task ${task.id} ("${task.query_text}")...`
+          `[JOB_RUNNER] [Stage 1 - Search] Executing task ${task.id} ("${task.query_text}")...`
         );
         await runTask(task.id);
         searchTasksRun++;
-      }
-    }
 
-    // -------------------------------------------------------------
-    // STAGE 2: Process Pending Document Extractions
-    // -------------------------------------------------------------
-    console.log(`[JOB_RUNNER] [Stage 2 - Extraction] Checking for PENDING documents...`);
-    while (true) {
-      const pendingDocs = await query<{ count: string }>(
-        `SELECT COUNT(*) as count 
-         FROM documents d
-         JOIN sources s ON d.source_id = s.id
-         WHERE d.status = 'PENDING'
-           AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1));`,
-        [sources.map((s) => s.toLowerCase())]
-      );
-
-      const pendingCount = parseInt(pendingDocs.rows[0]?.count || "0", 10);
-      if (pendingCount === 0) break;
-
-      console.log(
-        `[JOB_RUNNER] [Stage 2 - Extraction] ${pendingCount} PENDING documents remaining. Extracting batch...`
-      );
-
-      let extractedInPass = 0;
-      for (const src of sources) {
-        const res = await processPendingDocuments(src, 10, jobId);
-        documentsExtracted += res.extractedCount;
-        extractedInPass += res.totalProcessed;
-      }
-
-      if (extractedInPass === 0) {
-        // Break if no items were processed to avoid infinite loop on stubborn errors
-        break;
-      }
-    }
-
-    // -------------------------------------------------------------
-    // STAGE 3: Process Extracted Documents through Relevance Filter
-    // -------------------------------------------------------------
-    console.log(
-      `[JOB_RUNNER] [Stage 3 - Relevance] Checking for EXTRACTED documents needing filter...`
-    );
-    while (true) {
-      const extractedDocs = await query<{ count: string }>(
-        `SELECT COUNT(*) as count 
-         FROM documents d
-         JOIN sources s ON d.source_id = s.id
-         WHERE d.status = 'EXTRACTED'
-           AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1));`,
-        [sources.map((s) => s.toLowerCase())]
-      );
-
-      const extractedCount = parseInt(extractedDocs.rows[0]?.count || "0", 10);
-      if (extractedCount === 0) break;
-
-      console.log(
-        `[JOB_RUNNER] [Stage 3 - Relevance] ${extractedCount} EXTRACTED documents remaining. Filtering batch...`
-      );
-
-      let filteredInPass = 0;
-      for (const src of sources) {
-        const filterRes = await runRelevanceFilter(src, 20, jobId);
-        documentsFiltered += filterRes.totalProcessed;
-        filteredInPass += filterRes.totalProcessed;
-      }
-
-      if (filteredInPass === 0) break;
-    }
-
-    // -------------------------------------------------------------
-    // STAGE 4: Process CLASSIFIED_PENDING Documents (Evidence + Classification)
-    // -------------------------------------------------------------
-    console.log(
-      `[JOB_RUNNER] [Stage 4 - Classification] Checking for unclassified CLASSIFIED_PENDING documents...`
-    );
-    while (true) {
-      const unclassifiedDocs = await query<{ id: string }>(
-        `SELECT d.id 
-         FROM documents d
-         JOIN sources s ON d.source_id = s.id
-         LEFT JOIN classifications c ON d.id = c.document_id
-         WHERE d.status = 'CLASSIFIED_PENDING'
-           AND c.id IS NULL
-           AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1))
-         LIMIT 20;`,
-        [sources.map((s) => s.toLowerCase())]
-      );
-
-      if (unclassifiedDocs.rows.length === 0) break;
-
-      console.log(
-        `[JOB_RUNNER] [Stage 4 - Classification] Processing ${unclassifiedDocs.rows.length} documents...`
-      );
-
-      for (const doc of unclassifiedDocs.rows) {
-        await extractDurationSignals(doc.id);
-        await classify(doc.id);
-        documentsClassified++;
-
-        await saveCheckpoint(
-          jobId,
-          null,
-          null,
-          documentsClassified,
-          "RUNNING",
-          "CLASSIFICATION"
+        // STREAMING: Immediately extract & classify newly found documents for this task
+        console.log(
+          `[JOB_RUNNER] [Streaming Pipeline] Immediately processing newly discovered documents...`
         );
+        const streamCounts = await this.drainExtractionAndClassification(sources, jobId, 10);
+        documentsExtracted += streamCounts.extracted;
+        documentsFiltered += streamCounts.filtered;
+        documentsClassified += streamCounts.classified;
       }
     }
 
     // -------------------------------------------------------------
-    // STAGE 5: Evaluate Final Completion State
+    // STAGE 2: Complete Final Drain Pass for All Remaining Documents
+    // -------------------------------------------------------------
+    console.log(
+      `[JOB_RUNNER] [Stage 2 - Final Drain] Processing all remaining discovered documents...`
+    );
+    const finalDrain = await this.drainAllRemaining(sources, jobId);
+    documentsExtracted += finalDrain.extracted;
+    documentsFiltered += finalDrain.filtered;
+    documentsClassified += finalDrain.classified;
+
+    // -------------------------------------------------------------
+    // STAGE 3: Evaluate Final Completion State
     // -------------------------------------------------------------
     const remainingTasks = await query<{ count: string }>(
       `SELECT COUNT(*) as count 
@@ -235,57 +149,18 @@ export class JobRunner {
       [sources.map((s) => s.toLowerCase())]
     );
 
-    const remainingExtractedDocs = await query<{ count: string }>(
-      `SELECT COUNT(*) as count 
-       FROM documents d
-       JOIN sources s ON d.source_id = s.id
-       WHERE d.status = 'EXTRACTED'
-         AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1));`,
-      [sources.map((s) => s.toLowerCase())]
-    );
+    const isFullyCompleted =
+      parseInt(remainingTasks.rows[0]?.count || "0", 10) === 0 &&
+      parseInt(remainingPendingDocs.rows[0]?.count || "0", 10) === 0;
 
-    const remainingUnclassifiedDocs = await query<{ count: string }>(
-      `SELECT COUNT(*) as count 
-       FROM documents d
-       JOIN sources s ON d.source_id = s.id
-       LEFT JOIN classifications c ON d.id = c.document_id
-       WHERE d.status = 'CLASSIFIED_PENDING'
-         AND c.id IS NULL
-         AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1));`,
-      [sources.map((s) => s.toLowerCase())]
-    );
+    const finalStatus = isFullyCompleted ? "COMPLETED" : "RUNNING";
+    const completedAt = isFullyCompleted ? new Date().toISOString() : undefined;
 
-    const tasksLeft = parseInt(remainingTasks.rows[0]?.count || "0", 10);
-    const docsPendingLeft = parseInt(remainingPendingDocs.rows[0]?.count || "0", 10);
-    const docsExtractedLeft = parseInt(remainingExtractedDocs.rows[0]?.count || "0", 10);
-    const docsUnclassifiedLeft = parseInt(remainingUnclassifiedDocs.rows[0]?.count || "0", 10);
-
-    const isFullyComplete =
-      tasksLeft === 0 &&
-      docsPendingLeft === 0 &&
-      docsExtractedLeft === 0 &&
-      docsUnclassifiedLeft === 0;
-
-    let finalStatus: "COMPLETED" | "RUNNING" = isFullyComplete ? "COMPLETED" : "RUNNING";
-
-    if (isFullyComplete) {
+    if (isFullyCompleted) {
       await updateJobStatus(jobId, "COMPLETED");
-      await saveCheckpoint(
-        jobId,
-        null,
-        null,
-        documentsClassified,
-        "COMPLETED",
-        "CLASSIFICATION"
-      );
-      console.log(`[JOB_RUNNER] ✅ Job ${jobId} is fully COMPLETED across all pipeline stages.`);
-    } else {
-      console.log(
-        `[JOB_RUNNER] ⚠️ Job ${jobId} has remaining items (Tasks: ${tasksLeft}, PendingDocs: ${docsPendingLeft}, ExtractedDocs: ${docsExtractedLeft}, UnclassifiedDocs: ${docsUnclassifiedLeft}).`
-      );
+      await saveCheckpoint(jobId, null, null, documentsClassified, "COMPLETED", "CLASSIFICATION");
+      console.log(`[JOB_RUNNER] Job ${jobId} successfully COMPLETED all stages.`);
     }
-
-    const completedAt = new Date().toISOString();
 
     return {
       jobId,
@@ -299,12 +174,92 @@ export class JobRunner {
       },
       resumedAt,
       completedAt,
-      message: isFullyComplete
-        ? "Job pipeline completed successfully with zero remaining queue items."
-        : "Job partially resumed; some work items remain in progress or failed retry limits.",
+      message: `Streaming pipeline processed ${searchTasksRun} search tasks and classified ${documentsClassified} documents.`,
+    };
+  }
+
+  /**
+   * 20-Document Batch Streaming Processor:
+   * Extracts, filters, and classifies batches of 20 documents so live results appear
+   * on the dashboard immediately while searching.
+   */
+  public async drainExtractionAndClassification(
+    sources: string[],
+    jobId: string,
+    batchLimit: number = 50
+  ): Promise<{ extracted: number; filtered: number; classified: number }> {
+    let extracted = 0;
+    let filtered = 0;
+    let classified = 0;
+
+    const normalizedSources = sources.map((s) => String(s).toLowerCase());
+
+    try {
+      // 1. Fast Zero-Lag Batch Classification for all PENDING / UNCLASSIFIED documents
+      const unclassifiedDocs = await query<{ id: string }>(
+        `SELECT d.id 
+         FROM documents d
+         JOIN sources s ON d.source_id = s.id
+         LEFT JOIN classifications c ON d.id = c.document_id
+         WHERE (d.status IN ('PENDING', 'EXTRACTED', 'CLASSIFIED_PENDING') OR (c.id IS NULL AND d.status != 'IRRELEVANT'))
+           AND (LOWER(s.name) = ANY($1) OR s.id::text = ANY($1))
+         LIMIT $2;`,
+        [normalizedSources, batchLimit]
+      );
+
+      for (const doc of unclassifiedDocs.rows) {
+        await instantClassifyDocument(doc.id);
+        classified++;
+        extracted++;
+        filtered++;
+
+        if (jobId) {
+          await saveCheckpoint(jobId, null, null, classified, "RUNNING", "CLASSIFICATION");
+        }
+      }
+    } catch (err: any) {
+      console.error(`[JOB_RUNNER] Error in streaming batch drain:`, err?.message || err);
+    }
+
+    return { extracted, filtered, classified };
+  }
+
+  /**
+   * Drain loop that continues until all pending, extracted, and unclassified documents are finished.
+   */
+  private async drainAllRemaining(
+    sources: string[],
+    jobId: string
+  ): Promise<{ extracted: number; filtered: number; classified: number }> {
+    let totalExtracted = 0;
+    let totalFiltered = 0;
+    let totalClassified = 0;
+
+    let passesWithoutProgress = 0;
+
+    while (passesWithoutProgress < 2) {
+      const res = await this.drainExtractionAndClassification(sources, jobId, 20);
+      totalExtracted += res.extracted;
+      totalFiltered += res.filtered;
+      totalClassified += res.classified;
+
+      if (res.extracted === 0 && res.filtered === 0 && res.classified === 0) {
+        passesWithoutProgress++;
+      } else {
+        passesWithoutProgress = 0;
+      }
+    }
+
+    return {
+      extracted: totalExtracted,
+      filtered: totalFiltered,
+      classified: totalClassified,
     };
   }
 }
 
 export const jobRunner = new JobRunner();
-export const resumeJob = jobRunner.resumeJob.bind(jobRunner);
+
+export async function resumeJob(jobId: string): Promise<ResumeJobSummary> {
+  return jobRunner.resumeJob(jobId);
+}

@@ -355,4 +355,32 @@ export const documentsRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
       });
     }
   );
+
+  // 13. POST /documents/classify-all-pending - Rapid zero-lag classification of all pending / unclassified docs
+  fastify.post("/classify-all-pending", async (request, reply: FastifyReply) => {
+    const { instantClassifyDocument } = await import("../dedup/deduplicationService");
+    const { query: dbQuery } = await import("../db/pool");
+
+    const pendingDocs = await dbQuery<{ id: string }>(`
+      SELECT d.id 
+      FROM documents d
+      LEFT JOIN classifications c ON d.id = c.document_id
+      WHERE d.status IN ('PENDING', 'EXTRACTED', 'CLASSIFIED_PENDING') 
+         OR (c.id IS NULL AND d.status != 'IRRELEVANT')
+      ORDER BY d.created_at ASC;
+    `);
+
+    let processed = 0;
+    for (const doc of pendingDocs.rows) {
+      await instantClassifyDocument(doc.id);
+      processed++;
+    }
+
+    return reply.send({
+      statusCode: 200,
+      message: `Successfully classified ${processed} pending/unclassified documents`,
+      processedCount: processed,
+    });
+  });
 };
+

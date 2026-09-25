@@ -97,9 +97,9 @@ export async function getSummary(jobId?: string): Promise<SummaryMetrics> {
       COUNT(d.id) FILTER (WHERE d.duplicate_of IS NOT NULL)::int as duplicate_count,
       COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND c.classification = 'TWO_PLUS_YEARS')::int as two_plus_years,
       COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND c.classification = 'LESS_THAN_TWO_YEARS')::int as less_than_two_years,
-      COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND c.classification = 'NEEDS_REVIEW')::int as needs_review,
+      COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND (c.classification = 'NEEDS_REVIEW' OR d.status = 'NEEDS_RELEVANCE_REVIEW'))::int as needs_review,
       COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND d.status = 'IRRELEVANT')::int as irrelevant,
-      COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND c.id IS NULL AND d.status != 'IRRELEVANT')::int as pending_classification
+      COUNT(d.id) FILTER (WHERE d.duplicate_of IS NULL AND c.id IS NULL AND d.status NOT IN ('IRRELEVANT', 'NEEDS_RELEVANCE_REVIEW'))::int as pending_classification
     FROM documents d
     LEFT JOIN classifications c ON d.id = c.document_id
     ${docFilter};
@@ -386,14 +386,28 @@ export interface DashboardDocumentItem {
   evidence_text: string | null;
 }
 
+export interface PaginatedDashboardDocuments {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  data: DashboardDocumentItem[];
+}
+
 /**
- * Retrieves recently discovered documents with source URLs, institutions, and classification status.
+ * Retrieves paginated discovered documents with source URLs, institutions, search filter, and classification status.
  */
 export async function getDashboardDocuments(
   jobId?: string,
-  limit: number = 100,
-  classificationFilter?: string
-): Promise<DashboardDocumentItem[]> {
+  page: number = 1,
+  limit: number = 50,
+  classificationFilter?: string,
+  searchTerm?: string
+): Promise<PaginatedDashboardDocuments> {
+  const safePage = Math.max(1, Number(page) || 1);
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 50, 500));
+  const offset = (safePage - 1) * safeLimit;
+
   const params: any[] = [];
   const whereClauses: string[] = ["d.duplicate_of IS NULL"];
 
@@ -407,16 +421,53 @@ export async function getDashboardDocuments(
   }
 
   if (classificationFilter && classificationFilter !== "ALL") {
-    params.push(classificationFilter.toUpperCase());
-    if (classificationFilter.toUpperCase() === "PENDING") {
-      whereClauses.push(`c.classification IS NULL`);
+    const cf = classificationFilter.toUpperCase().trim();
+    if (cf === "PENDING") {
+      whereClauses.push(`(c.classification IS NULL AND d.status NOT IN ('IRRELEVANT', 'NEEDS_RELEVANCE_REVIEW'))`);
+    } else if (cf === "NEEDS_REVIEW" || cf === "REVIEW" || cf === "NEEDS_RELEVANCE_REVIEW") {
+      whereClauses.push(`(c.classification = 'NEEDS_REVIEW' OR d.status = 'NEEDS_RELEVANCE_REVIEW')`);
+    } else if (cf === "IRRELEVANT") {
+      whereClauses.push(`d.status = 'IRRELEVANT'`);
+    } else if (cf === "TWO_PLUS_YEARS" || cf === "2_PLUS" || cf === ">2" || cf === ">" || cf === "2+ YEARS" || cf === "2+" || cf === "TWO_PLUS" || cf === "> 2 YEARS") {
+      whereClauses.push(`c.classification = 'TWO_PLUS_YEARS'`);
+    } else if (cf === "LESS_THAN_TWO_YEARS" || cf === "LESS_THAN_2" || cf === "<2" || cf === "<" || cf === "< 2 YEARS" || cf === "<2 YEARS" || cf === "LESS_THAN_2_YEARS") {
+      whereClauses.push(`c.classification = 'LESS_THAN_TWO_YEARS'`);
     } else {
+      params.push(cf);
       whereClauses.push(`c.classification = $${params.length}`);
     }
   }
 
-  params.push(limit);
+  if (searchTerm && searchTerm.trim()) {
+    params.push(`%${searchTerm.trim()}%`);
+    whereClauses.push(`(
+      d.title ILIKE $${params.length} OR 
+      d.institution ILIKE $${params.length} OR 
+      ct.name ILIKE $${params.length} OR 
+      s.name ILIKE $${params.length}
+    )`);
+  }
+
+  const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+  // 1. Get total count
+  const countQuery = `
+    SELECT COUNT(d.id)::int as total
+    FROM documents d
+    LEFT JOIN countries ct ON d.country_id = ct.id
+    LEFT JOIN sources s ON d.source_id = s.id
+    LEFT JOIN classifications c ON d.id = c.document_id
+    ${whereSql};
+  `;
+  const countRes = await query<{ total: number }>(countQuery, params);
+  const total = countRes.rows[0]?.total || 0;
+  const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+
+  // 2. Query paginated rows
+  params.push(safeLimit);
   const limitParam = `$${params.length}`;
+  params.push(offset);
+  const offsetParam = `$${params.length}`;
 
   const queryText = `
     SELECT 
@@ -427,7 +478,12 @@ export async function getDashboardDocuments(
       COALESCE(ct.name, 'Unknown') as country_name,
       COALESCE(s.name, 'web') as source_name,
       d.status,
-      c.classification,
+      COALESCE(c.classification, CASE 
+        WHEN d.status = 'NEEDS_RELEVANCE_REVIEW' THEN 'NEEDS_REVIEW' 
+        WHEN d.status = 'IRRELEVANT' THEN 'IRRELEVANT'
+        WHEN d.status = 'EXTRACTED' THEN 'CLASSIFYING'
+        ELSE 'PENDING'
+      END) as classification,
       c.completed_years,
       c.confidence,
       d.created_at,
@@ -436,11 +492,18 @@ export async function getDashboardDocuments(
     LEFT JOIN countries ct ON d.country_id = ct.id
     LEFT JOIN sources s ON d.source_id = s.id
     LEFT JOIN classifications c ON d.id = c.document_id
-    WHERE ${whereClauses.join(" AND ")}
+    ${whereSql}
     ORDER BY d.created_at DESC
-    LIMIT ${limitParam};
+    LIMIT ${limitParam} OFFSET ${offsetParam};
   `;
 
   const res = await query<DashboardDocumentItem>(queryText, params);
-  return res.rows;
+
+  return {
+    total,
+    page: safePage,
+    limit: safeLimit,
+    totalPages,
+    data: res.rows,
+  };
 }

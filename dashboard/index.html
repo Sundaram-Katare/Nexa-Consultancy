@@ -107,7 +107,7 @@
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.65rem;
     }
 
     .status-indicator {
@@ -160,6 +160,7 @@
       text-decoration: none;
       transition: all 0.15s ease;
       border: 1px solid transparent;
+      user-select: none;
     }
 
     .btn-secondary {
@@ -198,6 +199,17 @@
 
     .btn-warning:hover {
       background: #b45309;
+    }
+
+    .btn-danger-outline {
+      background: var(--bg-surface);
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
+
+    .btn-danger-outline:hover {
+      background: #fee2e2;
+      border-color: #fca5a5;
     }
 
     /* Main Container */
@@ -487,7 +499,7 @@
     .table-responsive {
       width: 100%;
       overflow-x: auto;
-      max-height: 400px;
+      max-height: 480px;
     }
 
     table {
@@ -562,6 +574,7 @@
       color: #ffffff;
       border-color: #2563eb;
     }
+
     .filter-tabs {
       display: flex;
       gap: 0.4rem;
@@ -597,6 +610,7 @@
       min-width: 220px;
       background: var(--bg-surface);
       color: var(--text-main);
+      transition: border-color 0.15s;
     }
     .doc-search-input:focus {
       border-color: var(--border-focus);
@@ -611,6 +625,75 @@
       color: var(--text-muted);
       display: block;
       margin-top: 0.15rem;
+    }
+
+    /* Pagination Bar */
+    .pagination-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+
+    .pagination-info {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .pagination-info strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .page-btn {
+      min-width: 32px;
+      height: 32px;
+      padding: 0 0.55rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      background: var(--bg-surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+
+    .page-btn:hover:not(:disabled) {
+      background: var(--bg-subtle);
+      border-color: #cbd5e1;
+    }
+
+    .page-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      font-weight: 600;
+    }
+
+    .page-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .page-ellipsis {
+      padding: 0 0.25rem;
+      color: var(--text-muted);
+      font-size: 0.8rem;
     }
 
     /* Errors Section */
@@ -689,7 +772,7 @@
         <span id="beacon-text">Connected</span>
       </div>
 
-      <select class="select-input" id="job-selector" onchange="fetchDashboardData()">
+      <select class="select-input" id="job-selector" onchange="onJobSelectorChange()">
         <option value="">All Jobs Scope</option>
       </select>
 
@@ -707,6 +790,14 @@
           <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
         </svg>
         Refresh (<span id="poll-countdown">30</span>s)
+      </button>
+
+      <button class="btn btn-danger-outline" onclick="confirmResetDatabase()" title="Stop all jobs and reset all documents/classifications to 0">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Reset Data
       </button>
     </div>
   </header>
@@ -768,7 +859,7 @@
       <div class="kpi-card" style="border-left: 3px solid #16a34a;">
         <div class="kpi-card-header">
           <span class="kpi-label">2+ Completed Years</span>
-          <span class="badge badge-success">Target</span>
+          <span class="badge badge-success">Target (&ge;2)</span>
         </div>
         <div class="kpi-number" style="color: #16a34a;" id="kpi-two-plus">0</div>
         <div class="kpi-desc">&ge; 2 defensible academic years</div>
@@ -778,7 +869,7 @@
       <div class="kpi-card" style="border-left: 3px solid #0284c7;">
         <div class="kpi-card-header">
           <span class="kpi-label">&lt; 2 Years Duration</span>
-          <span class="badge badge-info">Short-term</span>
+          <span class="badge badge-info">Short-term (&lt;2)</span>
         </div>
         <div class="kpi-number" style="color: #0284c7;" id="kpi-less-two">0</div>
         <div class="kpi-desc">Under 2 years duration</div>
@@ -849,6 +940,7 @@
           <span class="task-stat-label">Failed:</span>
           <span class="task-stat-val" style="color: #dc2626;" id="task-failed">0</span>
         </div>
+      </div>
     </section>
 
     <!-- Discovered Academic Documents Live Feed Table -->
@@ -861,21 +953,22 @@
         <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
           <div class="filter-tabs">
             <button class="tab-btn active" onclick="setDocFilter('ALL', this)">All</button>
-            <button class="tab-btn" onclick="setDocFilter('TWO_PLUS_YEARS', this)">2+ Years</button>
-            <button class="tab-btn" onclick="setDocFilter('LESS_THAN_TWO_YEARS', this)">&lt;2 Years</button>
+            <button class="tab-btn" onclick="setDocFilter('TWO_PLUS_YEARS', this)">2+ Years (&ge;2)</button>
+            <button class="tab-btn" onclick="setDocFilter('LESS_THAN_TWO_YEARS', this)">&lt;2 Years (&lt;2)</button>
             <button class="tab-btn" onclick="setDocFilter('NEEDS_REVIEW', this)">Needs Review</button>
             <button class="tab-btn" onclick="setDocFilter('PENDING', this)">Pending</button>
+            <button class="tab-btn" onclick="setDocFilter('IRRELEVANT', this)">Irrelevant</button>
           </div>
           <input 
             type="text" 
             id="doc-search-box" 
             class="doc-search-input" 
-            placeholder="Search documents by title, university..." 
-            oninput="filterDocsLocal()"
+            placeholder="Search by title, university, country..." 
+            oninput="handleDocSearch(this.value)"
           />
         </div>
       </div>
-      <div class="table-responsive" style="max-height: 480px;">
+      <div class="table-responsive">
         <table>
           <thead>
             <tr>
@@ -891,6 +984,16 @@
             <tr><td colspan="6" class="empty-state">Loading harvested academic documents...</td></tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="pagination-bar" id="doc-pagination-bar">
+        <div class="pagination-info" id="pagination-info-text">
+          Showing 0 to 0 of 0 documents
+        </div>
+        <div class="pagination-controls" id="pagination-buttons">
+          <!-- Dynamically populated buttons -->
+        </div>
       </div>
     </section>
 
@@ -980,21 +1083,32 @@
     let pollSecondsRemaining = 30;
     let currentActiveJobId = null;
 
-    let allFetchedDocuments = [];
+    // Pagination and filter state
+    let currentDocPage = 1;
+    const currentDocLimit = 50;
     let currentDocFilter = 'ALL';
+    let currentDocSearch = '';
+    let totalDocCount = 0;
+    let totalDocPages = 1;
+    let searchDebounceTimer = null;
+    let isFetchingDocs = false;
+
+    function onJobSelectorChange() {
+      currentDocPage = 1;
+      fetchDashboardData();
+    }
 
     async function fetchDashboardData() {
       const jobId = document.getElementById('job-selector').value;
       const jobParam = jobId ? `?jobId=${encodeURIComponent(jobId)}` : '';
 
       try {
-        const [summaryRes, countriesRes, institutionsRes, progressRes, errorsRes, docsRes] = await Promise.all([
+        const [summaryRes, countriesRes, institutionsRes, progressRes, errorsRes] = await Promise.all([
           fetch(`${API_BASE}/dashboard/summary${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/by-country${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/by-institution${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/progress${jobParam}`).then(r => r.json()),
           fetch(`${API_BASE}/dashboard/errors${jobParam}`).then(r => r.json()),
-          fetch(`${API_BASE}/dashboard/documents${jobParam}`).then(r => r.json()),
         ]);
 
         renderSummary(summaryRes.data || {});
@@ -1003,8 +1117,7 @@
         renderProgress(progressRes.data || {});
         renderErrors(errorsRes.data || []);
         
-        allFetchedDocuments = docsRes.data || [];
-        renderDocuments(allFetchedDocuments);
+        await fetchDashboardDocuments(currentDocPage);
 
         if (progressRes.data && progressRes.data.jobs) {
           populateJobDropdown(progressRes.data.jobs, jobId);
@@ -1019,47 +1132,66 @@
       pollSecondsRemaining = 30;
     }
 
-    function renderDocuments(docs) {
+    async function fetchDashboardDocuments(page = 1) {
+      if (isFetchingDocs) return;
+      isFetchingDocs = true;
+      currentDocPage = page;
+
+      const jobId = document.getElementById('job-selector').value;
+      const params = new URLSearchParams();
+      if (jobId) params.append('jobId', jobId);
+      params.append('page', currentDocPage);
+      params.append('limit', currentDocLimit);
+      if (currentDocFilter && currentDocFilter !== 'ALL') {
+        params.append('classification', currentDocFilter);
+      }
+      if (currentDocSearch && currentDocSearch.trim()) {
+        params.append('search', currentDocSearch.trim());
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/dashboard/documents?${params.toString()}`);
+        const json = await res.json();
+        
+        const docs = json.data || [];
+        totalDocCount = json.total || 0;
+        totalDocPages = json.totalPages || Math.max(1, Math.ceil(totalDocCount / currentDocLimit));
+        currentDocPage = json.page || currentDocPage;
+
+        renderDocumentsTable(docs);
+        renderPaginationControls();
+      } catch (err) {
+        console.error('Failed to fetch paginated documents:', err);
+      } finally {
+        isFetchingDocs = false;
+      }
+    }
+
+    function renderDocumentsTable(docs) {
       const tbody = document.getElementById('document-table-body');
       const badge = document.getElementById('doc-count-badge');
       
-      // Apply classification filter
-      let filtered = docs;
-      if (currentDocFilter !== 'ALL') {
-        if (currentDocFilter === 'PENDING') {
-          filtered = docs.filter(d => !d.classification || d.classification === 'PENDING');
-        } else {
-          filtered = docs.filter(d => d.classification === currentDocFilter);
-        }
-      }
+      badge.textContent = `${totalDocCount.toLocaleString()} Documents`;
 
-      // Apply search text
-      const searchBox = document.getElementById('doc-search-box');
-      const searchTerm = searchBox ? searchBox.value.trim().toLowerCase() : '';
-      if (searchTerm) {
-        filtered = filtered.filter(d => 
-          (d.title && d.title.toLowerCase().includes(searchTerm)) ||
-          (d.institution && d.institution.toLowerCase().includes(searchTerm)) ||
-          (d.country_name && d.country_name.toLowerCase().includes(searchTerm)) ||
-          (d.source_name && d.source_name.toLowerCase().includes(searchTerm))
-        );
-      }
-
-      badge.textContent = `${filtered.length} Documents`;
-
-      if (!filtered || filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No academic documents match the current filter.</td></tr>';
+      if (!docs || docs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No academic documents match the current filter / search.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = filtered.map(d => {
+      tbody.innerHTML = docs.map(d => {
         let classBadge = '<span class="badge badge-neutral">PENDING</span>';
         if (d.classification === 'TWO_PLUS_YEARS') {
-          classBadge = `<span class="badge badge-success">2+ YEARS (${d.completed_years || 2}+ yrs)</span>`;
+          const yrs = d.completed_years ? `${d.completed_years}+ yrs` : '2+ yrs';
+          classBadge = `<span class="badge badge-success">2+ YEARS (${yrs})</span>`;
         } else if (d.classification === 'LESS_THAN_TWO_YEARS') {
-          classBadge = `<span class="badge badge-info">&lt; 2 YEARS (${d.completed_years || 1} yr)</span>`;
+          const yrs = d.completed_years ? `${d.completed_years} yr` : '<2 yrs';
+          classBadge = `<span class="badge badge-info">&lt; 2 YEARS (${yrs})</span>`;
         } else if (d.classification === 'NEEDS_REVIEW') {
           classBadge = '<span class="badge badge-warning">NEEDS REVIEW</span>';
+        } else if (d.classification === 'IRRELEVANT') {
+          classBadge = '<span class="badge badge-danger">IRRELEVANT</span>';
+        } else if (d.classification === 'CLASSIFYING') {
+          classBadge = '<span class="badge badge-neutral" style="background:#e0e7ff; color:#3730a3; font-weight:600;">CLASSIFYING...</span>';
         }
 
         const dateStr = d.created_at ? new Date(d.created_at).toLocaleDateString() : 'N/A';
@@ -1091,15 +1223,87 @@
       }).join('');
     }
 
+    function renderPaginationControls() {
+      const infoEl = document.getElementById('pagination-info-text');
+      const btnContainer = document.getElementById('pagination-buttons');
+
+      if (totalDocCount === 0) {
+        infoEl.innerHTML = `Showing <strong>0</strong> documents`;
+        btnContainer.innerHTML = '';
+        return;
+      }
+
+      const start = (currentDocPage - 1) * currentDocLimit + 1;
+      const end = Math.min(currentDocPage * currentDocLimit, totalDocCount);
+      infoEl.innerHTML = `Showing <strong>${start}–${end}</strong> of <strong>${totalDocCount.toLocaleString()}</strong> documents &bull; Page <strong>${currentDocPage}</strong> of <strong>${totalDocPages}</strong> (50/page)`;
+
+      if (totalDocPages <= 1) {
+        btnContainer.innerHTML = '';
+        return;
+      }
+
+      let buttonsHtml = '';
+
+      // First button
+      buttonsHtml += `<button class="page-btn" onclick="goToDocPage(1)" ${currentDocPage === 1 ? 'disabled' : ''} title="First Page">&laquo;</button>`;
+      
+      // Previous button
+      buttonsHtml += `<button class="page-btn" onclick="goToDocPage(${currentDocPage - 1})" ${currentDocPage === 1 ? 'disabled' : ''} title="Previous Page">&lsaquo; Prev</button>`;
+
+      // Page numbers (smart window)
+      const maxButtons = 5;
+      let startPage = Math.max(1, currentDocPage - 2);
+      let endPage = Math.min(totalDocPages, startPage + maxButtons - 1);
+
+      if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+      }
+
+      if (startPage > 1) {
+        buttonsHtml += `<button class="page-btn" onclick="goToDocPage(1)">1</button>`;
+        if (startPage > 2) {
+          buttonsHtml += `<span class="page-ellipsis">&hellip;</span>`;
+        }
+      }
+
+      for (let p = startPage; p <= endPage; p++) {
+        buttonsHtml += `<button class="page-btn ${p === currentDocPage ? 'active' : ''}" onclick="goToDocPage(${p})">${p}</button>`;
+      }
+
+      if (endPage < totalDocPages) {
+        if (endPage < totalDocPages - 1) {
+          buttonsHtml += `<span class="page-ellipsis">&hellip;</span>`;
+        }
+        buttonsHtml += `<button class="page-btn" onclick="goToDocPage(${totalDocPages})">${totalDocPages}</button>`;
+      }
+
+      // Next button
+      buttonsHtml += `<button class="page-btn" onclick="goToDocPage(${currentDocPage + 1})" ${currentDocPage >= totalDocPages ? 'disabled' : ''} title="Next Page">Next &rsaquo;</button>`;
+
+      // Last button
+      buttonsHtml += `<button class="page-btn" onclick="goToDocPage(${totalDocPages})" ${currentDocPage >= totalDocPages ? 'disabled' : ''} title="Last Page">&raquo;</button>`;
+
+      btnContainer.innerHTML = buttonsHtml;
+    }
+
+    function goToDocPage(page) {
+      if (page < 1 || page > totalDocPages || page === currentDocPage) return;
+      fetchDashboardDocuments(page);
+    }
+
     function setDocFilter(classification, btnEl) {
       currentDocFilter = classification;
       document.querySelectorAll('.filter-tabs .tab-btn').forEach(b => b.classList.remove('active'));
       if (btnEl) btnEl.classList.add('active');
-      renderDocuments(allFetchedDocuments);
+      fetchDashboardDocuments(1);
     }
 
-    function filterDocsLocal() {
-      renderDocuments(allFetchedDocuments);
+    function handleDocSearch(val) {
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        currentDocSearch = val;
+        fetchDashboardDocuments(1);
+      }, 250);
     }
 
     function renderSummary(s) {
@@ -1216,7 +1420,8 @@
       const options = ['<option value="">All Jobs Scope</option>'];
       jobs.forEach(j => {
         const selected = j.id === currentJobId ? 'selected' : '';
-        options.push(`<option value="${j.id}" ${selected}>Job ${j.id.substring(0, 8)} (${j.status} - ${j.completion_percentage}%)</option>`);
+        const shortId = j.id ? j.id.substring(0, 8) : 'N/A';
+        options.push(`<option value="${j.id || ''}" ${selected}>Job ${shortId} (${j.status || 'UNKNOWN'} - ${j.completion_percentage || 0}%)</option>`);
       });
 
       select.innerHTML = options.join('');
@@ -1255,13 +1460,27 @@
           throw new Error(planData.message || 'Failed to plan command.');
         }
 
+        // Handle Clarification Requests gracefully
+        if (planData.needsClarification || planData.type === 'CLARIFICATION_REQUIRED') {
+          statusBox.className = 'command-status info active';
+          statusMsg.innerHTML = `💬 <strong>Clarification Required:</strong> ${escapeHtml(planData.question || 'Please specify an accepted target country (e.g. Canada, UK, Nigeria, Ghana) or source adapter.')}`;
+          btn.disabled = false;
+          btnText.textContent = 'Run Agent';
+          return;
+        }
+
         const jobId = planData.jobId || planData.job_id;
+        if (!jobId) {
+          throw new Error(planData.message || 'No job ID was returned from planner.');
+        }
+
         currentActiveJobId = jobId;
         const totalPlanned = planData.totalPlanned || (planData.planned_tasks ? planData.planned_tasks.createdCount : 0);
         const countries = planData.countriesPlanned || (planData.planned_tasks ? planData.planned_tasks.countriesPlanned : []);
+        const shortJobId = jobId ? jobId.substring(0, 8) : 'ACTIVE';
 
         statusBox.className = 'command-status success active';
-        statusMsg.innerHTML = `Job Created (${jobId.substring(0, 8)}): Planned ${totalPlanned} search tasks across [${countries.join(', ')}]. Starting Chromium automation engine...`;
+        statusMsg.innerHTML = `Job Created (<code>${shortJobId}</code>): Planned ${totalPlanned} search tasks across [${countries.join(', ')}]. Starting Chromium automation engine...`;
         btnText.textContent = 'Running...';
 
         fetch(`${API_BASE}/jobs/${jobId}/resume-full`, {
@@ -1276,7 +1495,7 @@
         setTimeout(() => {
           btn.disabled = false;
           btnText.textContent = 'Run Agent';
-          statusMsg.innerHTML = `Job <code>${jobId.substring(0, 8)}</code> is currently running. Progress is updating live below.`;
+          statusMsg.innerHTML = `Job <code>${shortJobId}</code> is currently running. Progress is updating live below.`;
         }, 3000);
 
       } catch (err) {
@@ -1299,7 +1518,8 @@
         const res = await fetch(`${API_BASE}/jobs/${jobId}/pause`, { method: 'POST' });
         const data = await res.json();
         if (res.ok) {
-          alert(`Job ${jobId.substring(0, 8)} paused successfully.`);
+          const shortId = jobId ? jobId.substring(0, 8) : '';
+          alert(`Job ${shortId} paused successfully.`);
           document.getElementById('btn-pause-job').style.display = 'none';
           fetchDashboardData();
         } else {
@@ -1307,6 +1527,26 @@
         }
       } catch (e) {
         alert('Error: ' + e.message);
+      }
+    }
+
+    async function confirmResetDatabase() {
+      if (!confirm('Are you sure you want to stop all processes and reset all documents, classifications, and jobs from the database?')) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/jobs/reset-all`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert('Database reset successful. All documents and jobs have been cleared.');
+          currentDocPage = 1;
+          fetchDashboardData();
+        } else {
+          alert('Failed to reset: ' + data.message);
+        }
+      } catch (err) {
+        alert('Reset request failed: ' + err.message);
       }
     }
 

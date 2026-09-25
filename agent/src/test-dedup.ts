@@ -285,6 +285,9 @@ async function runDedupTests() {
     console.log("[CLEANUP] Cleaning up test documents...");
     if (createdDocIds.length > 0) {
       try {
+        await query(`DELETE FROM classifications WHERE document_id = ANY($1);`, [createdDocIds]);
+        await query(`DELETE FROM evidence_signals WHERE document_id = ANY($1);`, [createdDocIds]);
+        await query(`DELETE FROM document_evidence WHERE document_id = ANY($1);`, [createdDocIds]);
         await query(`DELETE FROM documents WHERE id = ANY($1);`, [createdDocIds]);
         console.log(`[CLEANUP] Deleted ${createdDocIds.length} test documents.`);
       } catch (e: any) {

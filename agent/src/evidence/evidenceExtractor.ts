@@ -43,13 +43,26 @@ export async function extractDurationSignals(
         throw new Error(`Document with ID '${documentId}' was not found.`);
       }
 
-      // 1. Fetch raw evidence text blocks
-      const evidenceRows = await getDocumentEvidence(documentId);
-      console.log(
-        `[EVIDENCE_EXTRACTOR] Analyzing ${evidenceRows.length} evidence blocks for doc ${documentId}...`
-      );
+      // 1. Scan title for duration signals
+      if (doc.title) {
+        const titleSignals = findSignalsInText(doc.title);
+        for (const signal of titleSignals) {
+          await query(
+            `INSERT INTO evidence_signals (
+               document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
+             ) VALUES ($1, NULL, $2, $3, $4, 'title')
+             ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
+             SET extracted_value = EXCLUDED.extracted_value,
+                 location_ref = EXCLUDED.location_ref;`,
+            [documentId, signal.signalType, signal.rawText, signal.extractedValue]
+          );
+        }
+      }
 
-      // 2. Scan each evidence block with explicit patterns
+      // 2. Fetch raw evidence text blocks
+      const evidenceRows = await getDocumentEvidence(documentId);
+
+      // 3. Scan each evidence block with explicit patterns
       for (const row of evidenceRows) {
         const signals = findSignalsInText(row.evidence_text);
 
@@ -73,14 +86,15 @@ export async function extractDurationSignals(
         }
       }
 
-      // 3. Scan metadata description if present
-      if (doc.raw_metadata?.description) {
-        const descSignals = findSignalsInText(doc.raw_metadata.description);
+      // 4. Scan metadata description & snippet if present
+      const metadataSnippet = doc.raw_metadata?.snippet || doc.raw_metadata?.description;
+      if (metadataSnippet) {
+        const descSignals = findSignalsInText(metadataSnippet);
         for (const signal of descSignals) {
           await query(
             `INSERT INTO evidence_signals (
                document_id, document_evidence_id, signal_type, raw_text, extracted_value, location_ref
-             ) VALUES ($1, NULL, $2, $3, $4, 'metadata_description')
+             ) VALUES ($1, NULL, $2, $3, $4, 'metadata_snippet')
              ON CONFLICT (document_id, signal_type, raw_text) DO UPDATE 
              SET extracted_value = EXCLUDED.extracted_value,
                  location_ref = EXCLUDED.location_ref;`,
@@ -89,7 +103,7 @@ export async function extractDurationSignals(
         }
       }
 
-      // 4. Return all persisted signals for this document
+      // 5. Return all persisted signals for this document
       return await getEvidenceSignals(documentId);
     },
     "EXTRACTION_ERROR",

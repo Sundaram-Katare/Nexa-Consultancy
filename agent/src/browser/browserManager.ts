@@ -137,6 +137,12 @@ export class BrowserManager {
     const page = await context.newPage();
     page.setDefaultTimeout(30000);
 
+    // High-speed acceleration: Abort heavy images, fonts, media, and stylesheets
+    await page.route(
+      /\.(png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|mp4|webm|avi|css)$/i,
+      (route) => route.abort()
+    );
+
     const session: BrowserSession = {
       id: sessionId,
       context,

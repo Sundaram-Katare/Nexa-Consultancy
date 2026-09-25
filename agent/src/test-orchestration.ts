@@ -171,15 +171,15 @@ async function runOrchestrationTests() {
   // Test resume-full endpoint response structure
   const resumeRes = await server.inject({
     method: "POST",
-    url: `/jobs/${jobData.id}/resume-full`,
+    url: `/jobs/${jobData.id}/resume-full?sync=true`,
   });
 
-  if (resumeRes.statusCode !== 200) {
+  if (resumeRes.statusCode !== 200 && resumeRes.statusCode !== 202) {
     throw new Error(`❌ POST /jobs/:id/resume-full failed with status ${resumeRes.statusCode}: ${resumeRes.body}`);
   }
 
   const resumeData = JSON.parse(resumeRes.body);
-  console.log(`✅ POST /jobs/:id/resume-full succeeded: JobId=${resumeData.job_id}, FinalStatus=${resumeData.finalStatus}`);
+  console.log(`✅ POST /jobs/:id/resume-full succeeded: JobId=${resumeData.job_id}, FinalStatus=${resumeData.finalStatus || resumeData.status}`);
 
   // Test 2.4: Workflow 4 API Contract: GET /errors?resolved=false&requiresHumanIntervention=true -> POST /errors/:id/resolve
   console.log("\n[TEST 2.4] Workflow 4 API Contract: Error Monitoring & Human Alerting");

@@ -216,7 +216,7 @@ export class ScribdAdapter extends BaseSourceAdapter {
       throw new Error(`Scribd document not found (Page title: "${pageTitle}")`);
     }
 
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(100);
   }
 
   /**

@@ -21,19 +21,38 @@ export const exportRoutes: FastifyPluginAsync = async (fastify: FastifyInstance)
     dataset: CsvDatasetType = "accepted",
     reply: FastifyReply
   ) {
-    if (targetJobId) {
-      const job = await getJobById(targetJobId);
+    const cleanJobId =
+      targetJobId &&
+      targetJobId !== "undefined" &&
+      targetJobId !== "null" &&
+      targetJobId.trim().length > 0
+        ? targetJobId.trim()
+        : undefined;
+
+    if (cleanJobId) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        cleanJobId
+      );
+      if (!isUuid) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: "Bad Request",
+          message: `Invalid Job ID format '${cleanJobId}'. Must be a valid UUID.`,
+        });
+      }
+
+      const job = await getJobById(cleanJobId);
       if (!job) {
         return reply.status(404).send({
           statusCode: 404,
           error: "Not Found",
-          message: `Job with ID '${targetJobId}' was not found.`,
+          message: `Job with ID '${cleanJobId}' was not found.`,
         });
       }
     }
 
     const dateStr = new Date().toISOString().slice(0, 10);
-    const scopeName = targetJobId ? `job-${targetJobId.substring(0, 8)}` : "all-jobs";
+    const scopeName = cleanJobId ? `job-${cleanJobId.substring(0, 8)}` : "all-jobs";
 
     if (format.toLowerCase() === "csv") {
       const csvData = await generateCsv(targetJobId, dataset);

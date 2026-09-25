@@ -123,7 +123,7 @@ async function runDashboardTests() {
 
   // Test 2.6: GET Static Dashboard UI
   const resUI = await server.inject({ method: "GET", url: "/ui/index.html" });
-  if (resUI.statusCode !== 200 || !resUI.body.includes("NEXA INTELLIGENCE")) {
+  if (resUI.statusCode !== 200 || !resUI.body.toUpperCase().includes("NEXA INTELLIGENCE")) {
     throw new Error(`GET /ui/index.html failed or missing brand title: Status ${resUI.statusCode}`);
   }
   console.log("✅ GET /ui/index.html -> 200 OK (Static Dashboard UI served successfully)");

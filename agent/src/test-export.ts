@@ -22,7 +22,7 @@ async function runExportTests() {
   console.log(`✅ generateXlsx() generated valid buffer of size ${xlsxBuffer.length} bytes`);
 
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(xlsxBuffer);
+  await workbook.xlsx.load(xlsxBuffer as any);
 
   const expectedSheets = [
     "Summary",
@@ -117,7 +117,15 @@ async function runExportTests() {
 
   // Pick or create a test job
   const jobRes = await query<{ id: string }>(`SELECT id FROM jobs ORDER BY created_at DESC LIMIT 1;`);
-  const testJobId = jobRes.rows[0]?.id;
+  let testJobId = jobRes.rows[0]?.id;
+  if (!testJobId) {
+    const insertJob = await query<{ id: string }>(`
+      INSERT INTO jobs (status, config)
+      VALUES ('COMPLETED', '{"source": "slideshare", "countries": ["Canada"]}'::jsonb)
+      RETURNING id;
+    `);
+    testJobId = insertJob.rows[0].id;
+  }
 
   // 3.1 Test GET /jobs/:id/export?format=xlsx
   const xlsxEndpointRes = await server.inject({
@@ -193,7 +201,7 @@ async function runExportTests() {
   const nonExistentJob = "00000000-0000-0000-0000-000000000000";
   const emptyXlsx = await generateXlsx(nonExistentJob);
   const emptyWorkbook = new ExcelJS.Workbook();
-  await emptyWorkbook.xlsx.load(emptyXlsx);
+  await emptyWorkbook.xlsx.load(emptyXlsx as any);
   if (emptyWorkbook.worksheets.length !== 9) {
     throw new Error("❌ Empty export should still generate all 9 sheets with headers!");
   }

@@ -11,8 +11,8 @@ export const SCRIBD_CONFIG = {
     "https://www.scribd.com/search?content_type=documents&query={query}&page={page}",
   LOGIN_URL: "https://www.scribd.com/login",
 
-  // Conservative rate limiting delay to respect server load and prevent throttling
-  MIN_REQUEST_DELAY_MS: 3000,
+  // Fast streaming delay
+  MIN_REQUEST_DELAY_MS: 200,
 
   // Navigation and DOM extraction timeouts
   NAVIGATION_TIMEOUT_MS: 30000,

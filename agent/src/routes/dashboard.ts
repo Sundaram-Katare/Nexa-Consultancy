@@ -11,8 +11,10 @@ import {
 interface DashboardQuery {
   jobId?: string;
   countryId?: string | number;
+  page?: string | number;
   limit?: string | number;
   classification?: string;
+  search?: string;
 }
 
 export const dashboardRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) => {
@@ -31,18 +33,28 @@ export const dashboardRoutes: FastifyPluginAsync = async (fastify: FastifyInstan
     }
   );
 
-  // GET /dashboard/documents - Live discovered academic transcripts feed with canonical URLs
+  // GET /dashboard/documents - Live discovered academic transcripts feed with pagination & filtering
   fastify.get(
     "/documents",
     async (request: FastifyRequest<{ Querystring: DashboardQuery }>, reply: FastifyReply) => {
-      const { jobId, limit, classification } = request.query;
-      const maxLimit = limit ? Math.min(Number(limit), 200) : 100;
-      const docs = await getDashboardDocuments(jobId?.trim(), maxLimit, classification?.trim());
+      const { jobId, page, limit, classification, search } = request.query;
+      const pageNum = page ? Math.max(1, Number(page)) : 1;
+      const limitNum = limit ? Math.min(Math.max(1, Number(limit)), 500) : 50;
+      const result = await getDashboardDocuments(
+        jobId?.trim(),
+        pageNum,
+        limitNum,
+        classification?.trim(),
+        search?.trim()
+      );
 
       return reply.send({
         statusCode: 200,
-        total: docs.length,
-        data: docs,
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: result.totalPages,
+        data: result.data,
       });
     }
   );

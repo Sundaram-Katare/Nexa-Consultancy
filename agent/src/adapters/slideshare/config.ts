@@ -9,8 +9,8 @@ export const SLIDESHARE_CONFIG = {
   BASE_URL: "https://www.slideshare.net",
   SEARCH_URL_TEMPLATE: "https://www.slideshare.net/search?searchFrom=header&q={query}&page={page}",
   
-  // Rate limiting delay in milliseconds to respect server load and prevent 429 throttling
-  MIN_REQUEST_DELAY_MS: 2500,
+  // Fast request delay in milliseconds
+  MIN_REQUEST_DELAY_MS: 200,
 
   // Navigation and DOM extraction timeouts
   NAVIGATION_TIMEOUT_MS: 30000,

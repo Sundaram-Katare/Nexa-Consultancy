@@ -76,14 +76,24 @@ export async function insertSearchHistory(
   searchTaskId: string,
   resultCount: number,
   rawResponseMeta?: any
-): Promise<string> {
-  const res = await query(
-    `INSERT INTO search_history (search_task_id, executed_at, result_count, raw_response_meta) 
-     VALUES ($1, NOW(), $2, $3) 
-     RETURNING id;`,
-    [searchTaskId, resultCount, rawResponseMeta ? JSON.stringify(rawResponseMeta) : null]
-  );
-  return res.rows[0].id;
+): Promise<string | null> {
+  try {
+    const res = await query(
+      `INSERT INTO search_history (search_task_id, executed_at, result_count, raw_response_meta) 
+       VALUES ($1, NOW(), $2, $3) 
+       RETURNING id;`,
+      [searchTaskId, resultCount, rawResponseMeta ? JSON.stringify(rawResponseMeta) : null]
+    );
+    return res.rows[0]?.id || null;
+  } catch (err: any) {
+    if (err.code === "23503") {
+      console.warn(
+        `[SEARCH_HISTORY] Task ${searchTaskId} not found in search_tasks table, skipping search history insert.`
+      );
+      return null;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -100,6 +110,8 @@ export async function insertPendingDocument(doc: {
   educationLevel?: string | null;
   program?: string | null;
   documentType?: string | null;
+  snippet?: string | null;
+  rawMetadata?: any;
 }): Promise<{ inserted: boolean; id?: string; duplicate: boolean; duplicateReason?: string | null }> {
   const result = await deduplicationService.checkDuplicateAndIngest(doc);
   return {

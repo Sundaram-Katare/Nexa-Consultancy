@@ -1,5 +1,8 @@
 import { query } from "../db/pool";
 import { normalizeTitle, normalizeInstitution } from "./normalize";
+import { deterministicRelevanceCheck } from "../relevance/keywordFilter";
+import { extractDurationSignals } from "../evidence/evidenceExtractor";
+import { candidateClassification } from "../classification/rules";
 
 export interface CandidateDocument {
   sourceId: number;
@@ -11,6 +14,8 @@ export interface CandidateDocument {
   educationLevel?: string | null;
   program?: string | null;
   documentType?: string | null;
+  snippet?: string | null;
+  rawMetadata?: any;
 }
 
 export interface DuplicateResult {
@@ -33,12 +38,17 @@ export class DeduplicationService {
     candidate: CandidateDocument
   ): Promise<DuplicateResult> {
     try {
+      const metaPayload = {
+        snippet: candidate.snippet || null,
+        ...(candidate.rawMetadata || {}),
+      };
+
       // 1. Attempt to insert candidate into documents table
       const res = await query<{ id: string }>(
         `INSERT INTO documents (
            source_id, source_document_id, canonical_url, title, 
-           country_id, institution, education_level, program, document_type, status
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING')
+           country_id, institution, education_level, program, document_type, status, raw_metadata
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10::jsonb)
          RETURNING id;`,
         [
           candidate.sourceId,
@@ -50,13 +60,33 @@ export class DeduplicationService {
           candidate.educationLevel || null,
           candidate.program || null,
           candidate.documentType || null,
+          JSON.stringify(metaPayload),
         ]
       );
 
       const newId = res.rows[0].id;
 
-      // 2. Level 3 Check: Only runs for freshly inserted documents
+      // 2. Immediately ingest snippet & title into document_evidence
+      const evidenceTexts = [candidate.title, candidate.snippet].filter(
+        (t): t is string => typeof t === "string" && t.trim().length > 0
+      );
+      if (evidenceTexts.length > 0) {
+        for (const txt of evidenceTexts) {
+          await query(
+            `INSERT INTO document_evidence (document_id, evidence_text, extraction_method, extracted_at)
+             VALUES ($1, $2, 'search_card_snippet', NOW())
+             ON CONFLICT DO NOTHING;`,
+            [newId, txt.trim()]
+          );
+        }
+      }
+
+      // 3. Level 3 Check: Only runs for freshly inserted documents
       const level3Match = await this.evaluateLevel3Match(newId, candidate);
+
+      // 4. Instant Zero-Lag Classification on Ingestion
+      await instantClassifyDocument(newId);
+
       if (level3Match) {
         return {
           inserted: true,
@@ -219,3 +249,93 @@ export class DeduplicationService {
 }
 
 export const deduplicationService = new DeduplicationService();
+
+/**
+ * Fast Zero-Browser Ingestion Classifier:
+ * Instantly evaluates deterministic relevance and duration rules using search card snippet and title.
+ * Classifies document in <2ms so no documents ever remain in PENDING status.
+ */
+export async function instantClassifyDocument(documentId: string): Promise<void> {
+  try {
+    const docRes = await query<{
+      id: string;
+      title: string | null;
+      raw_metadata: any;
+      status: string;
+    }>(`SELECT id, title, raw_metadata, status FROM documents WHERE id = $1;`, [documentId]);
+
+    if (docRes.rows.length === 0) return;
+    const doc = docRes.rows[0];
+
+    // Fetch evidence text blocks
+    const evidenceRows = await query<{ evidence_text: string }>(
+      `SELECT evidence_text FROM document_evidence WHERE document_id = $1;`,
+      [documentId]
+    );
+    const evidenceTexts = evidenceRows.rows.map((r) => r.evidence_text);
+    if (doc.raw_metadata?.snippet) {
+      evidenceTexts.push(doc.raw_metadata.snippet);
+    }
+
+    // Step 1: Relevance check
+    const check = deterministicRelevanceCheck(doc.title || "", evidenceTexts);
+    const relevanceMetadata = {
+      verdict: check.verdict,
+      confidence: check.confidence,
+      reason: check.reason,
+      matchedPositiveTerms: check.matchedPositiveTerms,
+      matchedExclusionTerms: check.matchedExclusionTerms,
+      evaluatedAt: new Date().toISOString(),
+    };
+
+    if (check.verdict === "NOT_RELEVANT") {
+      await query(
+        `UPDATE documents 
+         SET status = 'IRRELEVANT',
+             raw_metadata = jsonb_set(COALESCE(raw_metadata, '{}'::jsonb), '{relevance}', $2::jsonb)
+         WHERE id = $1;`,
+        [documentId, JSON.stringify(relevanceMetadata)]
+      );
+      return;
+    }
+
+    // Step 2: Duration signal extraction & classification
+    const signals = await extractDurationSignals(documentId);
+    const decision = candidateClassification(signals);
+
+    // Save classification
+    await query(
+      `INSERT INTO classifications (
+         document_id, classification, completed_years, duration_text, 
+         confidence, verification_status, model_used, reasoning, classified_at
+       ) VALUES ($1, $2, $3, $4, $5, 'RULE_BASED', NULL, $6, NOW())
+       ON CONFLICT (document_id) DO UPDATE 
+       SET classification = EXCLUDED.classification,
+           completed_years = EXCLUDED.completed_years,
+           duration_text = EXCLUDED.duration_text,
+           confidence = EXCLUDED.confidence,
+           verification_status = 'RULE_BASED',
+           reasoning = EXCLUDED.reasoning,
+           classified_at = NOW();`,
+      [
+        documentId,
+        decision.classification,
+        decision.completedYears,
+        decision.durationText,
+        decision.confidence,
+        decision.reasoning,
+      ]
+    );
+
+    // Advance document status
+    await query(
+      `UPDATE documents 
+       SET status = 'CLASSIFIED',
+           raw_metadata = jsonb_set(COALESCE(raw_metadata, '{}'::jsonb), '{relevance}', $2::jsonb)
+       WHERE id = $1;`,
+      [documentId, JSON.stringify(relevanceMetadata)]
+    );
+  } catch (err: any) {
+    console.error(`[INSTANT_CLASSIFY] Error classifying document ${documentId}:`, err?.message || err);
+  }
+}

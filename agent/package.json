@@ -10,6 +10,7 @@
     "migrate": "node-pg-migrate -m migrations",
     "migrate:up": "node-pg-migrate -m migrations up",
     "migrate:down": "node-pg-migrate -m migrations down",
+    "db:clean": "ts-node-dev --transpile-only src/db/reset.ts",
     "test:schema": "ts-node-dev --transpile-only src/test-schema.ts",
     "test:api": "ts-node-dev --transpile-only src/test-api.ts",
     "test:browser": "ts-node-dev --transpile-only src/test-browser.ts",

@@ -12,6 +12,7 @@ import {
   validateAcceptedCountries,
   listJobs,
 } from "../db/queries/jobs";
+import { query as dbQuery } from "../db/pool";
 
 interface JobParams {
   id: string;
@@ -262,8 +263,15 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
         params: jobParamsSchema,
       },
     },
-    async (request: FastifyRequest<{ Params: JobParams }>, reply: FastifyReply) => {
+    async (
+      request: FastifyRequest<{
+        Params: JobParams;
+        Querystring: { sync?: string | boolean };
+      }>,
+      reply: FastifyReply
+    ) => {
       const { id } = request.params;
+      const { sync } = request.query || {};
       const job = await getJobById(id);
 
       if (!job) {
@@ -275,14 +283,30 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       }
 
       const { resumeJob } = await import("../pipeline/jobRunner");
-      const summary = await resumeJob(id);
 
-      return reply.send({
-        statusCode: 200,
-        message: "Pipeline resume executed successfully",
-        job_id: id,
-        ...summary,
-      });
+      if (sync === "true" || sync === true) {
+        const summary = await resumeJob(id);
+        return reply.send({
+          statusCode: 200,
+          message: "Pipeline resume executed synchronously",
+          job_id: id,
+          ...summary,
+        });
+      } else {
+        // Asynchronous non-blocking background execution
+        setImmediate(() => {
+          resumeJob(id).catch((err) => {
+            console.error(`[JOB_RUNNER] Background execution error for job ${id}:`, err);
+          });
+        });
+
+        return reply.status(202).send({
+          statusCode: 202,
+          message: "Job pipeline execution started in background",
+          job_id: id,
+          status: "RUNNING",
+        });
+      }
     }
   );
 
@@ -367,6 +391,30 @@ export const jobsRoutes: FastifyPluginAsync = async (fastify: FastifyInstance) =
       });
     }
   );
+
+  // POST /jobs/reset-all - Cleanly truncate all documents, tasks, classifications, and jobs
+  fastify.post("/reset-all", async (request: FastifyRequest, reply: FastifyReply) => {
+    await dbQuery(`
+      TRUNCATE TABLE 
+        errors, 
+        checkpoints, 
+        classifications, 
+        evidence_signals, 
+        document_evidence, 
+        documents, 
+        search_history, 
+        search_tasks, 
+        job_metrics, 
+        jobs, 
+        institutions 
+      CASCADE;
+    `);
+    return reply.send({
+      statusCode: 200,
+      message: "Database cleanly reset: all jobs, tasks, documents, and classifications cleared to 0.",
+    });
+  });
 };
+
 
 
