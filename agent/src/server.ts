@@ -10,8 +10,8 @@ import { checkDatabaseHealth } from "./db/pool";
 import path from "path";
 import fastifyStatic from "@fastify/static";
 import { dashboardRoutes } from "./routes/dashboard";
-
 import { exportRoutes } from "./routes/export";
+import { nlAgentRoutes } from "./routes/nlAgent";
 
 export function buildServer(): FastifyInstance {
   const server = Fastify({
@@ -51,6 +51,7 @@ export function buildServer(): FastifyInstance {
   server.register(documentsRoutes, { prefix: "/documents" });
   server.register(errorsRoutes, { prefix: "/errors" });
   server.register(dashboardRoutes, { prefix: "/dashboard" });
+  server.register(nlAgentRoutes, { prefix: "/agent" });
   server.register(exportRoutes);
   server.register(debugRoutes, { prefix: "/debug" });
 

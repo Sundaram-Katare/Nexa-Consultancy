@@ -27,7 +27,8 @@
     "test:orchestration": "ts-node-dev --transpile-only src/test-orchestration.ts",
     "test:dashboard": "ts-node-dev --transpile-only src/test-dashboard.ts",
     "test:export": "ts-node-dev --transpile-only src/test-export.ts",
-    "test:ai": "ts-node-dev --transpile-only src/test-ai.ts"
+    "test:ai": "ts-node-dev --transpile-only src/test-ai.ts",
+    "test:nl-agent": "ts-node-dev --transpile-only src/test-nl-agent.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",
