@@ -178,8 +178,6 @@ export async function getJobProgress(jobId: string): Promise<JobProgress> {
      FROM documents d
      LEFT JOIN classifications c ON d.id = c.document_id
      WHERE d.id IN (
-       SELECT DISTINCT document_id FROM checkpoints WHERE job_id = $1
-       UNION
        SELECT d2.id FROM documents d2
        JOIN search_tasks st ON d2.country_id = st.country_id
        WHERE st.job_id = $1

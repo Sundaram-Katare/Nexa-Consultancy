@@ -84,8 +84,6 @@ export async function getSummary(jobId?: string): Promise<SummaryMetrics> {
   if (jobId) {
     params.push(jobId);
     docFilter = `WHERE d.id IN (
-      SELECT DISTINCT document_id FROM checkpoints WHERE job_id = $1
-      UNION
       SELECT d2.id FROM documents d2
       JOIN search_tasks st ON d2.country_id = st.country_id
       WHERE st.job_id = $1
@@ -134,8 +132,6 @@ export async function getByCountry(jobId?: string): Promise<CountryMetrics[]> {
     params.push(jobId);
     jobFilterTasks = `AND st.job_id = $1`;
     jobFilterDocs = `AND d.id IN (
-      SELECT DISTINCT document_id FROM checkpoints WHERE job_id = $1
-      UNION
       SELECT d2.id FROM documents d2
       JOIN search_tasks st ON d2.country_id = st.country_id
       WHERE st.job_id = $1
@@ -213,8 +209,6 @@ export async function getByInstitution(
   if (jobId) {
     params.push(jobId);
     whereClauses.push(`d.id IN (
-      SELECT DISTINCT document_id FROM checkpoints WHERE job_id = $${params.length}
-      UNION
       SELECT d2.id FROM documents d2
       JOIN search_tasks st ON d2.country_id = st.country_id
       WHERE st.job_id = $${params.length}
